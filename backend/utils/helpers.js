@@ -1,8 +1,3 @@
-// Utility functions for SkillVersus backend
-
-/**
- * Calculate XP gain based on duel result
- */
 export const calculateXPGain = (won) => {
   const baseXP = 25;
 
