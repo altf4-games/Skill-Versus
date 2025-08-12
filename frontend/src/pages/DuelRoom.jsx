@@ -5,6 +5,7 @@ import { useUserContext } from '@/contexts/UserContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { apiClient } from '@/lib/api';
 import { Editor } from '@monaco-editor/react';
+import TypingInterface from '@/components/TypingInterface';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -159,6 +160,41 @@ export default function DuelRoom() {
       }
     };
 
+    const handleTypingDuelFinished = (data) => {
+      console.log('Typing duel finished:', data);
+      console.log('Winner data:', data.winner);
+      setDuelResult(data);
+      setRoom(data.room);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+
+    const handleParticipantTypingProgress = (data) => {
+      console.log('Participant typing progress:', data);
+      // Update room with latest participant progress
+      setRoom(prevRoom => {
+        if (!prevRoom) return prevRoom;
+        
+        const updatedParticipants = prevRoom.participants.map(p => 
+          p.userId === data.userId 
+            ? { ...p, typingProgress: { ...p.typingProgress, ...data.progress } }
+            : p
+        );
+        
+        return { ...prevRoom, participants: updatedParticipants };
+      });
+    };
+
+    const handleParticipantTypingRestart = (data) => {
+      console.log('Participant restarted typing:', data);
+      // Could show a notification that opponent restarted
+      if (data.userId !== user?.id) {
+        setError(`${data.username} restarted typing`);
+        setTimeout(() => setError(null), 3000);
+      }
+    };
+
     const handleSubmissionReceived = (data) => {
       console.log('Submission received:', data);
       // Show notification about opponent's submission
@@ -184,6 +220,9 @@ export default function DuelRoom() {
     socket.on('code-submitted', handleCodeSubmitted);
     socket.on('duel-ended', handleDuelEnded);
     socket.on('duel-finished', handleDuelFinished);
+    socket.on('typing-duel-finished', handleTypingDuelFinished);
+    socket.on('participant-typing-progress', handleParticipantTypingProgress);
+    socket.on('participant-typing-restart', handleParticipantTypingRestart);
     socket.on('submission-received', handleSubmissionReceived);
     socket.on('chat-message', handleChatMessage);
     socket.on('error', handleError);
@@ -196,6 +235,9 @@ export default function DuelRoom() {
       socket.off('code-submitted', handleCodeSubmitted);
       socket.off('duel-ended', handleDuelEnded);
       socket.off('duel-finished', handleDuelFinished);
+      socket.off('typing-duel-finished', handleTypingDuelFinished);
+      socket.off('participant-typing-progress', handleParticipantTypingProgress);
+      socket.off('participant-typing-restart', handleParticipantTypingRestart);
       socket.off('submission-received', handleSubmissionReceived);
       socket.off('chat-message', handleChatMessage);
       socket.off('error', handleError);
@@ -447,11 +489,28 @@ export default function DuelRoom() {
           </div>
         )}
 
-        {/* Header */}
+        {/* Render typing interface for typing duels */}
+        {room?.duelType === 'typing' ? (
+          <TypingInterface 
+            room={room}
+            socket={socket}
+            user={user}
+            timeRemaining={timeRemaining}
+            isReady={isReady}
+            setIsReady={setIsReady}
+            formatTime={formatTime}
+          />
+        ) : (
+          <>
+            {/* Original coding duel interface */}
+
+            {/* Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-high-contrast">Coding Duel</h1>
+              <h1 className="text-2xl font-bold text-high-contrast">
+                {room?.duelType === 'typing' ? 'Typing Duel' : 'Coding Duel'}
+              </h1>
               <div className="flex items-center space-x-2">
                 <Badge variant="outline" className="font-mono">
                   {roomCode}
@@ -962,13 +1021,18 @@ export default function DuelRoom() {
               {duelResult.winner ? (
                 <div className="text-center">
                   <p className="text-lg font-semibold text-green-600">
-                    🎉 {duelResult.finalResults?.find(r => r.userId === duelResult.winner)?.username || 'Winner'} wins!
+                    🎉 {duelResult.winner.username || 'Winner'} wins!
                   </p>
+                  {room?.duelType === 'typing' && duelResult.stats && (
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      Completed in {Math.round(duelResult.stats.totalTime)}s with {duelResult.stats.wpm} WPM and {duelResult.stats.accuracy}% accuracy!
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center">
                   <p className="text-lg font-semibold text-yellow-600">
-                    It's a tie! Both players submitted working solutions.
+                    {room?.duelType === 'typing' ? "It's a tie! Both players finished simultaneously." : "It's a tie! Both players submitted working solutions."}
                   </p>
                 </div>
               )}
@@ -976,15 +1040,46 @@ export default function DuelRoom() {
               <div className="space-y-2">
                 <h4 className="font-semibold">Final Results:</h4>
                 {duelResult.finalResults?.map((result, index) => (
-                  <div key={result.userId || index} className="flex items-center justify-between p-3 border rounded-lg">
-                    <span className="font-medium">{result.username}</span>
-                    <div className="flex items-center space-x-2">
-                      <Badge variant={result.passed ? "default" : "destructive"}>
-                        {result.passed ? "Passed" : "Failed"}
-                      </Badge>
-                      <span className="text-sm text-muted-foreground">
-                        {new Date(result.submittedAt).toLocaleTimeString()}
-                      </span>
+                  <div key={result.userId || index} className={`flex items-center justify-between p-3 border rounded-lg ${result.isWinner ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800' : ''}`}>
+                    <div className="flex items-center space-x-3">
+                      <span className="font-medium">{result.username}</span>
+                      {result.isWinner && (
+                        <Badge variant="default" className="bg-green-600">
+                          Winner
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center space-x-4">
+                      {room?.duelType === 'typing' ? (
+                        // Typing duel results
+                        <div className="text-right text-sm">
+                          {result.typingProgress ? (
+                            <>
+                              <div className="font-medium">{result.typingProgress.wpm || 0} WPM</div>
+                              <div className="text-muted-foreground">{result.typingProgress.accuracy || 0}% accuracy</div>
+                              {result.finishTime && (
+                                <div className="text-xs text-muted-foreground">
+                                  Finished: {new Date(result.finishTime).toLocaleTimeString()}
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <div className="text-muted-foreground">Did not finish</div>
+                          )}
+                        </div>
+                      ) : (
+                        // Coding duel results
+                        <>
+                          <Badge variant={result.passed === result.total ? "default" : "secondary"}>
+                            {result.passed}/{result.total} passed
+                          </Badge>
+                          {result.submissionTime && (
+                            <span className="text-sm text-muted-foreground">
+                              {new Date(result.submissionTime).toLocaleTimeString()}
+                            </span>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
                 )) || (
@@ -1002,6 +1097,9 @@ export default function DuelRoom() {
               </div>
             </CardContent>
           </Card>
+        )}
+        {/* End of coding duel interface */}
+          </>
         )}
       </div>
     </div>

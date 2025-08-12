@@ -1,6 +1,7 @@
 import Room from "../models/Room.js";
 import User from "../models/User.js";
 import Problem from "../models/Problem.js";
+import { getRandomTypingText } from "../utils/typingTexts.js";
 
 class RoomController {
   // Create a new duel room
@@ -66,6 +67,81 @@ class RoomController {
       console.error("Create room error:", error);
       res.status(500).json({
         error: "Failed to create room",
+        message: error.message,
+      });
+    }
+  }
+
+  // Create a new typing duel room
+  static async createTypingRoom(req, res) {
+    try {
+      const userId = req.auth.userId;
+      const { timeLimit = 30, difficulty = null } = req.body;
+
+      // Find user
+      const user = await User.findOne({ clerkId: userId });
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Get random typing text
+      const typingContent = getRandomTypingText(difficulty);
+
+      // Generate unique room code
+      let roomCode;
+      let existingRoom;
+      do {
+        roomCode = Math.random().toString(36).substr(2, 6).toUpperCase();
+        existingRoom = await Room.findOne({ roomCode });
+      } while (existingRoom);
+
+      const room = new Room({
+        roomCode,
+        host: user._id,
+        duelType: "typing",
+        typingContent: {
+          text: typingContent.text,
+          words: typingContent.words,
+          totalWords: typingContent.totalWords,
+        },
+        timeLimit,
+        maxParticipants: 2, // Typing duels are 1v1 only
+        participants: [
+          {
+            userId: user._id,
+            isReady: false,
+            typingProgress: {
+              currentWordIndex: 0,
+              typedText: "",
+              accuracy: 100,
+              wpm: 0,
+              correctChars: 0,
+              totalChars: 0,
+            },
+          },
+        ],
+      });
+
+      await room.save();
+      await room.populate("participants.userId", "username profileImage");
+
+      res.status(201).json({
+        room: {
+          roomCode: room.roomCode,
+          host: room.host,
+          participants: room.participants,
+          duelType: room.duelType,
+          typingContent: room.typingContent,
+          status: room.status,
+          timeLimit: room.timeLimit,
+          maxParticipants: room.maxParticipants,
+        },
+        message: "Typing room created successfully",
+      });
+    } catch (error) {
+      console.error("Create typing room error:", error);
+      res.status(500).json({
+        error: "Failed to create typing room",
         message: error.message,
       });
     }

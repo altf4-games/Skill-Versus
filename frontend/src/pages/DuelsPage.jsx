@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Swords, Users, Clock, Copy, Plus, LogIn } from 'lucide-react'
+import { Swords, Users, Clock, Copy, Plus, LogIn, Code, Keyboard } from 'lucide-react'
 
 export default function DuelsPage() {
   const navigate = useNavigate()
@@ -17,6 +17,7 @@ export default function DuelsPage() {
   const [isCreating, setIsCreating] = useState(false)
   const [isJoining, setIsJoining] = useState(false)
   const [timeLimit, setTimeLimit] = useState(30)
+  const [duelType, setDuelType] = useState('coding') // 'coding' or 'typing'
 
   useEffect(() => {
     if (!socket || !isConnected) return
@@ -25,6 +26,14 @@ export default function DuelsPage() {
     const handleDuelCreated = (data) => {
       const { room } = data
       console.log('Duel created:', room)
+      setIsCreating(false)
+      navigate(`/duel/${room.roomCode}`)
+    }
+
+    // Listen for typing duel creation success
+    const handleTypingDuelCreated = (data) => {
+      const { room } = data
+      console.log('Typing duel created:', room)
       setIsCreating(false)
       navigate(`/duel/${room.roomCode}`)
     }
@@ -46,11 +55,13 @@ export default function DuelsPage() {
     }
 
     socket.on('duel-created', handleDuelCreated)
+    socket.on('typing-duel-created', handleTypingDuelCreated)
     socket.on('participant-joined', handleParticipantJoined)
     socket.on('error', handleError)
 
     return () => {
       socket.off('duel-created', handleDuelCreated)
+      socket.off('typing-duel-created', handleTypingDuelCreated)
       socket.off('participant-joined', handleParticipantJoined)
       socket.off('error', handleError)
     }
@@ -64,7 +75,11 @@ export default function DuelsPage() {
 
     try {
       setIsCreating(true)
-      socket.emit('create-duel', { timeLimit })
+      if (duelType === 'typing') {
+        socket.emit('create-typing-duel', { timeLimit })
+      } else {
+        socket.emit('create-duel', { timeLimit })
+      }
     } catch (error) {
       console.error('Failed to create room:', error)
       setIsCreating(false)
@@ -111,9 +126,9 @@ export default function DuelsPage() {
         <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-orange-500 to-red-600 rounded-full mb-4">
           <Swords className="h-8 w-8 text-white" />
         </div>
-        <h1 className="text-4xl font-bold">Code Duels</h1>
+        <h1 className="text-4xl font-bold">Skill Duels</h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          Challenge other developers to real-time coding battles. Test your skills in LeetCode-style problems.
+          Challenge other players to real-time skill battles. Test your coding prowess or typing speed in competitive duels.
         </p>
       </div>
 
@@ -127,10 +142,37 @@ export default function DuelsPage() {
             </div>
             <CardTitle className="text-2xl">Create Duel</CardTitle>
             <CardDescription>
-              Start a new coding duel and invite others to join
+              Start a new {duelType} duel and invite others to join
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Duel Type</label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant={duelType === 'coding' ? 'default' : 'outline'}
+                  onClick={() => setDuelType('coding')}
+                  className="flex items-center justify-center space-x-2"
+                >
+                  <Code className="h-4 w-4" />
+                  <span>Coding</span>
+                </Button>
+                <Button
+                  variant={duelType === 'typing' ? 'default' : 'outline'}
+                  onClick={() => setDuelType('typing')}
+                  className="flex items-center justify-center space-x-2"
+                >
+                  <Keyboard className="h-4 w-4" />
+                  <span>Typing</span>
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground text-center">
+                {duelType === 'coding' 
+                  ? 'Solve coding problems faster than your opponent' 
+                  : 'Type text accurately and quickly (100% accuracy required)'}
+              </p>
+            </div>
+
             <div className="space-y-2">
               <label className="text-sm font-medium">Time Limit (minutes)</label>
               <Input
@@ -156,7 +198,7 @@ export default function DuelsPage() {
               ) : (
                 <>
                   <Plus className="mr-2 h-5 w-5" />
-                  Create Duel Room
+                  Create {duelType === 'coding' ? 'Code' : 'Typing'} Duel
                 </>
               )}
             </Button>

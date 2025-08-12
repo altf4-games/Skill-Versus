@@ -1,6 +1,7 @@
 import { Server } from "socket.io";
 import User from "../models/User.js";
 import Problem from "../models/Problem.js";
+import { getRandomTypingText, calculateTypingStats } from "../utils/typingTexts.js";
 
 // In-memory storage for rooms (temporary solution)
 const rooms = new Map();
@@ -154,6 +155,78 @@ class SocketManager {
         }
       });
 
+      // Create typing duel room
+      socket.on("create-typing-duel", async (data) => {
+        try {
+          if (!socket.userId) {
+            socket.emit("error", { message: "Not authenticated" });
+            return;
+          }
+
+          const { timeLimit = 30, difficulty = null } = data;
+
+          // Get random typing text
+          const typingContent = getRandomTypingText(difficulty);
+
+          // Generate unique room code
+          let roomCode;
+          do {
+            roomCode = generateRoomCode();
+          } while (rooms.has(roomCode));
+
+          // Create typing room in memory
+          const room = {
+            roomCode,
+            host: socket.userId,
+            hostUsername: socket.username,
+            duelType: "typing",
+            typingContent: {
+              text: typingContent.text,
+              words: typingContent.words,
+              totalWords: typingContent.totalWords,
+              difficulty: typingContent.difficulty,
+              category: typingContent.category,
+            },
+            timeLimit,
+            status: "waiting", // waiting, active, finished
+            maxParticipants: 2, // Typing duels are 1v1 only
+            participants: [
+              {
+                userId: socket.userId,
+                username: socket.username,
+                socketId: socket.id,
+                isReady: false,
+                typingProgress: {
+                  currentWordIndex: 0,
+                  typedText: "",
+                  accuracy: 100,
+                  wpm: 0,
+                  startTime: null,
+                  finishTime: null,
+                  correctChars: 0,
+                  totalChars: 0,
+                },
+                hasSubmitted: false,
+                submissionTime: null,
+              },
+            ],
+            chatMessages: [],
+            startTime: null,
+            endTime: null,
+            winner: null,
+          };
+
+          rooms.set(roomCode, room);
+          socket.join(roomCode);
+
+          console.log(`Typing room created: ${roomCode} by ${socket.username}`);
+          socket.emit("typing-duel-created", { room });
+        } catch (error) {
+          console.error("Create typing duel error:", error);
+          socket.emit("error", { message: "Failed to create typing duel" });
+        }
+      });
+
       // Join duel room
       socket.on("join-duel", async (data) => {
         try {
@@ -190,15 +263,32 @@ class SocketManager {
             (p) => p.userId === socket.userId
           );
           if (!existingParticipant) {
-            room.participants.push({
+            const newParticipant = {
               userId: socket.userId,
               username: socket.username,
               socketId: socket.id,
               isReady: false,
-              code: room.problem.functionSignature?.javascript || "",
               hasSubmitted: false,
               submissionTime: null,
-            });
+            };
+
+            // Add different fields based on duel type
+            if (room.duelType === "typing") {
+              newParticipant.typingProgress = {
+                currentWordIndex: 0,
+                typedText: "",
+                accuracy: 100,
+                wpm: 0,
+                startTime: null,
+                finishTime: null,
+                correctChars: 0,
+                totalChars: 0,
+              };
+            } else {
+              newParticipant.code = room.problem?.functionSignature?.javascript || "";
+            }
+
+            room.participants.push(newParticipant);
           } else {
             // Update socket ID for reconnection
             existingParticipant.socketId = socket.id;
@@ -600,6 +690,218 @@ class SocketManager {
         } catch (error) {
           console.error("Chat message error:", error);
           socket.emit("error", { message: "Failed to send chat message" });
+        }
+      });
+
+      // Handle typing progress updates
+      socket.on("typing-progress", (data) => {
+        try {
+          if (!socket.userId) {
+            socket.emit("error", { message: "Not authenticated" });
+            return;
+          }
+
+          const { roomCode, typedText, currentWordIndex } = data;
+          const room = rooms.get(roomCode);
+
+          if (!room) {
+            socket.emit("error", { message: "Room not found" });
+            return;
+          }
+
+          if (room.duelType !== "typing") {
+            socket.emit("error", { message: "Not a typing room" });
+            return;
+          }
+
+          if (room.status !== "active") {
+            socket.emit("error", { message: "Duel not active" });
+            return;
+          }
+
+          const participant = room.participants.find(
+            (p) => p.userId === socket.userId
+          );
+          if (!participant) {
+            socket.emit("error", { message: "Not in room" });
+            return;
+          }
+
+          // Start timer on first character typed
+          if (!participant.typingProgress.startTime && typedText.length > 0) {
+            participant.typingProgress.startTime = new Date();
+          }
+
+          // Calculate typing statistics
+          const timeElapsed = participant.typingProgress.startTime 
+            ? (new Date() - participant.typingProgress.startTime) / 1000 
+            : 0;
+
+          const stats = calculateTypingStats(
+            typedText,
+            room.typingContent.text,
+            timeElapsed
+          );
+
+          // Update participant progress
+          participant.typingProgress.typedText = typedText;
+          participant.typingProgress.currentWordIndex = currentWordIndex;
+          participant.typingProgress.accuracy = stats.accuracy;
+          participant.typingProgress.wpm = stats.wpm;
+          participant.typingProgress.correctChars = stats.correctChars;
+          participant.typingProgress.totalChars = stats.totalChars;
+
+          // Note: Completion is handled by the frontend via typing-completion event
+          // to ensure proper UI state management
+          
+          // Broadcast progress to other participants
+          socket.to(roomCode).emit("participant-typing-progress", {
+            userId: socket.userId,
+            username: socket.username,
+            progress: {
+              currentWordIndex: participant.typingProgress.currentWordIndex,
+              accuracy: participant.typingProgress.accuracy,
+              wpm: participant.typingProgress.wpm,
+              progressPercentage: (participant.typingProgress.currentWordIndex / room.typingContent.totalWords) * 100,
+            },
+          });
+        } catch (error) {
+          console.error("Typing progress error:", error);
+          socket.emit("error", { message: "Failed to update typing progress" });
+        }
+      });
+
+      // Handle typing restart (in case of mistakes with strict accuracy)
+      socket.on("restart-typing", (data) => {
+        try {
+          if (!socket.userId) {
+            socket.emit("error", { message: "Not authenticated" });
+            return;
+          }
+
+          const { roomCode } = data;
+          const room = rooms.get(roomCode);
+
+          if (!room) {
+            socket.emit("error", { message: "Room not found" });
+            return;
+          }
+
+          if (room.duelType !== "typing") {
+            socket.emit("error", { message: "Not a typing room" });
+            return;
+          }
+
+          if (room.status !== "active") {
+            socket.emit("error", { message: "Duel not active" });
+            return;
+          }
+
+          const participant = room.participants.find(
+            (p) => p.userId === socket.userId
+          );
+          if (!participant) {
+            socket.emit("error", { message: "Not in room" });
+            return;
+          }
+
+          // Reset typing progress
+          participant.typingProgress = {
+            currentWordIndex: 0,
+            typedText: "",
+            accuracy: 100,
+            wpm: 0,
+            startTime: null,
+            finishTime: null,
+            correctChars: 0,
+            totalChars: 0,
+          };
+
+          console.log(`${socket.username} restarted typing in room: ${roomCode}`);
+
+          // Notify participants about restart
+          this.io.to(roomCode).emit("participant-typing-restart", {
+            userId: socket.userId,
+            username: socket.username,
+          });
+        } catch (error) {
+          console.error("Restart typing error:", error);
+          socket.emit("error", { message: "Failed to restart typing" });
+        }
+      });
+
+      // Handle typing completion
+      socket.on("typing-completion", (data) => {
+        try {
+          if (!socket.userId) {
+            socket.emit("error", { message: "Not authenticated" });
+            return;
+          }
+
+          const { roomCode, finishTime, totalTime, wpm, accuracy, totalWords } = data;
+          const room = rooms.get(roomCode);
+
+          if (!room) {
+            socket.emit("error", { message: "Room not found" });
+            return;
+          }
+
+          if (room.duelType !== "typing") {
+            socket.emit("error", { message: "Not a typing room" });
+            return;
+          }
+
+          if (room.status !== "active") {
+            socket.emit("error", { message: "Duel not active" });
+            return;
+          }
+
+          const participant = room.participants.find(
+            (p) => p.userId === socket.userId
+          );
+          if (!participant) {
+            socket.emit("error", { message: "Not in room" });
+            return;
+          }
+
+          // Mark participant as finished
+          participant.typingProgress.finishTime = finishTime;
+          participant.typingProgress.wpm = wpm;
+          participant.typingProgress.accuracy = accuracy;
+          participant.hasSubmitted = true;
+
+          // Set winner and end the duel
+          room.winner = socket.userId;
+          room.status = "finished";
+          room.endTime = new Date();
+
+          console.log(`${socket.username} completed typing duel in room: ${roomCode} - ${wpm} WPM, ${accuracy}% accuracy`);
+
+          // Notify all participants about the completion
+          this.io.to(roomCode).emit("typing-duel-finished", {
+            room,
+            winner: {
+              userId: socket.userId,
+              username: socket.username,
+            },
+            reason: "completion",
+            stats: {
+              wpm,
+              accuracy,
+              totalTime,
+              totalWords
+            },
+            finalResults: room.participants.map((p) => ({
+              userId: p.userId,
+              username: p.username,
+              typingProgress: p.typingProgress,
+              finishTime: p.typingProgress.finishTime,
+              isWinner: p.userId === socket.userId,
+            })),
+          });
+        } catch (error) {
+          console.error("Typing completion error:", error);
+          socket.emit("error", { message: "Failed to handle typing completion" });
         }
       });
 

@@ -38,12 +38,65 @@ const roomSchema = new mongoose.Schema(
           type: Boolean,
           default: false,
         },
+        // Typing specific fields
+        typingProgress: {
+          currentWordIndex: {
+            type: Number,
+            default: 0,
+          },
+          typedText: {
+            type: String,
+            default: "",
+          },
+          accuracy: {
+            type: Number,
+            default: 100,
+          },
+          wpm: {
+            type: Number,
+            default: 0,
+          },
+          startTime: Date,
+          finishTime: Date,
+          correctChars: {
+            type: Number,
+            default: 0,
+          },
+          totalChars: {
+            type: Number,
+            default: 0,
+          },
+        },
       },
     ],
+    duelType: {
+      type: String,
+      enum: ["coding", "typing"],
+      default: "coding",
+    },
     problem: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Problem",
-      required: true,
+      required: function() {
+        return this.duelType === "coding";
+      },
+    },
+    typingContent: {
+      text: {
+        type: String,
+        required: function() {
+          return this.duelType === "typing";
+        },
+      },
+      words: [{
+        type: String,
+      }],
+      totalWords: {
+        type: Number,
+        required: function() {
+          return this.duelType === "typing";
+        },
+      },
     },
     status: {
       type: String,

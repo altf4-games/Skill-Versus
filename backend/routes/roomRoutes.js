@@ -5,6 +5,7 @@ const router = express.Router();
 
 // Room management routes
 router.post("/", RoomController.createRoom); // Create room
+router.post("/typing", RoomController.createTypingRoom); // Create typing room
 router.get("/", RoomController.getRooms); // Get all rooms (with filters)
 router.get("/:roomId", RoomController.getRoom); // Get specific room
 router.put("/:roomId", RoomController.updateRoom); // Update room (host only)
