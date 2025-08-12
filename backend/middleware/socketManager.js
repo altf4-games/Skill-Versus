@@ -1,13 +1,16 @@
 import { Server } from "socket.io";
 import User from "../models/User.js";
 import Problem from "../models/Problem.js";
-import { getRandomTypingText, calculateTypingStats } from "../utils/typingTexts.js";
+import {
+  getRandomTypingText,
+  calculateTypingStats,
+} from "../utils/typingTexts.js";
 
-// In-memory storage for rooms (temporary solution)
+// In-memory storage for rooms - real-time data should not be persisted to MongoDB
 const rooms = new Map();
 
 function generateRoomCode() {
-  return Math.random().toString(36).substr(2, 6).toUpperCase();
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
 class SocketManager {
@@ -166,7 +169,7 @@ class SocketManager {
           const { timeLimit = 30, difficulty = null } = data;
 
           // Get random typing text
-          const typingContent = getRandomTypingText(difficulty);
+          const typingContent = await getRandomTypingText(difficulty);
 
           // Generate unique room code
           let roomCode;
@@ -285,7 +288,8 @@ class SocketManager {
                 totalChars: 0,
               };
             } else {
-              newParticipant.code = room.problem?.functionSignature?.javascript || "";
+              newParticipant.code =
+                room.problem?.functionSignature?.javascript || "";
             }
 
             room.participants.push(newParticipant);
@@ -733,8 +737,8 @@ class SocketManager {
           }
 
           // Calculate typing statistics
-          const timeElapsed = participant.typingProgress.startTime 
-            ? (new Date() - participant.typingProgress.startTime) / 1000 
+          const timeElapsed = participant.typingProgress.startTime
+            ? (new Date() - participant.typingProgress.startTime) / 1000
             : 0;
 
           const stats = calculateTypingStats(
@@ -753,7 +757,7 @@ class SocketManager {
 
           // Note: Completion is handled by the frontend via typing-completion event
           // to ensure proper UI state management
-          
+
           // Broadcast progress to other participants
           socket.to(roomCode).emit("participant-typing-progress", {
             userId: socket.userId,
@@ -762,7 +766,10 @@ class SocketManager {
               currentWordIndex: participant.typingProgress.currentWordIndex,
               accuracy: participant.typingProgress.accuracy,
               wpm: participant.typingProgress.wpm,
-              progressPercentage: (participant.typingProgress.currentWordIndex / room.typingContent.totalWords) * 100,
+              progressPercentage:
+                (participant.typingProgress.currentWordIndex /
+                  room.typingContent.totalWords) *
+                100,
             },
           });
         } catch (error) {
@@ -817,7 +824,9 @@ class SocketManager {
             totalChars: 0,
           };
 
-          console.log(`${socket.username} restarted typing in room: ${roomCode}`);
+          console.log(
+            `${socket.username} restarted typing in room: ${roomCode}`
+          );
 
           // Notify participants about restart
           this.io.to(roomCode).emit("participant-typing-restart", {
@@ -838,7 +847,8 @@ class SocketManager {
             return;
           }
 
-          const { roomCode, finishTime, totalTime, wpm, accuracy, totalWords } = data;
+          const { roomCode, finishTime, totalTime, wpm, accuracy, totalWords } =
+            data;
           const room = rooms.get(roomCode);
 
           if (!room) {
@@ -875,7 +885,9 @@ class SocketManager {
           room.status = "finished";
           room.endTime = new Date();
 
-          console.log(`${socket.username} completed typing duel in room: ${roomCode} - ${wpm} WPM, ${accuracy}% accuracy`);
+          console.log(
+            `${socket.username} completed typing duel in room: ${roomCode} - ${wpm} WPM, ${accuracy}% accuracy`
+          );
 
           // Notify all participants about the completion
           this.io.to(roomCode).emit("typing-duel-finished", {
@@ -889,7 +901,7 @@ class SocketManager {
               wpm,
               accuracy,
               totalTime,
-              totalWords
+              totalWords,
             },
             finalResults: room.participants.map((p) => ({
               userId: p.userId,
@@ -901,7 +913,9 @@ class SocketManager {
           });
         } catch (error) {
           console.error("Typing completion error:", error);
-          socket.emit("error", { message: "Failed to handle typing completion" });
+          socket.emit("error", {
+            message: "Failed to handle typing completion",
+          });
         }
       });
 
