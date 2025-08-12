@@ -18,4 +18,10 @@ router.get("/submission/:token", judge0Controller.getSubmission);
 // Get multiple submissions by tokens
 router.get("/submissions/batch", judge0Controller.getBatchSubmissions);
 
+// Run code with sample test cases (for practice/run button)
+router.post("/run-tests", judge0Controller.runCodeWithTests);
+
+// Submit code with all test cases (for submission)
+router.post("/submit-tests", judge0Controller.submitCodeWithTests);
+
 export default router;

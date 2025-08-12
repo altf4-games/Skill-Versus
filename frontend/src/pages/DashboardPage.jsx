@@ -39,13 +39,13 @@ export function DashboardPage() {
           </Avatar>
           <div>
             <h1 className="text-3xl font-bold">Welcome back, {user?.firstName || clerkUser?.firstName || 'Duelist'}!</h1>
-            <p className="text-muted-foreground flex items-center space-x-2">
+            <div className="text-muted-foreground flex items-center space-x-2">
               <span>Ready for your next challenge?</span>
               <Badge variant="secondary" className="ml-2">
                 <Flame className="h-3 w-3 mr-1" />
                 {user?.stats?.streak || 0} day streak
               </Badge>
-            </p>
+            </div>
           </div>
         </div>
         <div className="flex space-x-3">

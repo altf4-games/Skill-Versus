@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { ClerkProvider } from '@clerk/clerk-react'
 import { UserProvider } from '@/contexts/UserContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
+import { SocketProvider } from '@/contexts/SocketContext'
 import { Layout } from '@/components/layout/Layout'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 
@@ -11,9 +12,10 @@ import { SignInPage } from '@/pages/auth/SignInPage'
 import { SignUpPage } from '@/pages/auth/SignUpPage'
 import { ProfileSetupPage } from '@/pages/auth/ProfileSetupPage'
 import { DashboardPage } from '@/pages/DashboardPage'
-import { DuelsPage } from '@/pages/DuelsPage'
+import DuelsPage from '@/pages/DuelsPage'
 import { LeaderboardPage } from '@/pages/LeaderboardPage'
 import { ProfilePage } from '@/pages/ProfilePage'
+import DuelRoom from '@/pages/DuelRoom'
 
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || 'pk_test_Y29tcGV0ZW50LXNxdWlycmVsLTI0LmNsZXJrLmFjY291bnRzLmRldiQ'
 
@@ -22,57 +24,67 @@ function App() {
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
       <ThemeProvider>
         <UserProvider>
-          <Router>
-            <Layout>
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/sign-in" element={<SignInPage />} />
-              <Route path="/sign-up" element={<SignUpPage />} />
+          <SocketProvider>
+            <Router>
+              <Layout>
+              <Routes>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/sign-in" element={<SignInPage />} />
+                <Route path="/sign-up" element={<SignUpPage />} />
+                <Route 
+                  path="/profile-setup" 
+                  element={
+                    <ProtectedRoute>
+                      <ProfileSetupPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/dashboard" 
+                  element={
+                    <ProtectedRoute>
+                      <DashboardPage />
+                    </ProtectedRoute>
+                  } 
+                />
               <Route 
-                path="/profile-setup" 
+                path="/duels" 
                 element={
                   <ProtectedRoute>
-                    <ProfileSetupPage />
+                    <DuelsPage />
                   </ProtectedRoute>
                 } 
               />
               <Route 
-                path="/dashboard" 
+                path="/duel/:roomCode" 
                 element={
                   <ProtectedRoute>
-                    <DashboardPage />
+                    <DuelRoom />
                   </ProtectedRoute>
                 } 
               />
-            <Route 
-              path="/duels" 
-              element={
-                <ProtectedRoute>
-                  <DuelsPage />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/leaderboard" 
-              element={
-                <ProtectedRoute>
-                  <LeaderboardPage />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/profile" 
-              element={
-                <ProtectedRoute>
-                  <ProfilePage />
-                </ProtectedRoute>
-              } 
-            />
-          </Routes>
-        </Layout>
-      </Router>
-      </UserProvider>
-      </ThemeProvider>
+              <Route 
+                path="/leaderboard" 
+                element={
+                  <ProtectedRoute>
+                    <LeaderboardPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/profile" 
+                element={
+                  <ProtectedRoute>
+                    <ProfilePage />
+                  </ProtectedRoute>
+                } 
+              />
+            </Routes>
+          </Layout>
+        </Router>
+        </SocketProvider>
+        </UserProvider>
+        </ThemeProvider>
     </ClerkProvider>
   )
 }

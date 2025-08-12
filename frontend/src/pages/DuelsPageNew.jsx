@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Swords, Users, Clock, Copy, Plus, LogIn } from 'lucide-react'
 
-export default function DuelsPage() {
+export function DuelsPage() {
   const navigate = useNavigate()
   const { user } = useUser()
   const { socket, isConnected } = useSocket()

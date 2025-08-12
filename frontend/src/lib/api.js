@@ -61,6 +61,43 @@ class ApiClient {
   async getLeaderboard() {
     return this.request("/api/users/leaderboard");
   }
+
+  // Duel endpoints
+  async createDuelRoom(token, roomData) {
+    return this.request("/api/duels/create", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(roomData),
+    });
+  }
+
+  async joinDuelRoom(token, roomCode) {
+    return this.request(`/api/duels/join/${roomCode}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  }
+
+  async getDuelRoom(token, roomCode) {
+    return this.request(`/api/duels/room/${roomCode}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  }
+
+  async leaveDuelRoom(token, roomCode) {
+    return this.request(`/api/duels/leave/${roomCode}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  }
 }
 
 export const apiClient = new ApiClient();

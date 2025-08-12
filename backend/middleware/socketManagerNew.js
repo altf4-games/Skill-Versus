@@ -29,55 +29,25 @@ class SocketManager {
       // Authentication
       socket.on("authenticate", async (data) => {
         try {
-          const { clerkUserId, userId } = data;
-          const clerkId = clerkUserId || userId; // Support both property names
+          const { userId } = data;
+          const user = await User.findOne({ clerkId: userId });
 
-          if (!clerkId) {
-            socket.emit("error", { message: "No user ID provided" });
-            return;
-          }
-
-          let user = await User.findOne({ clerkId });
-
-          // If user doesn't exist, create them
-          if (!user) {
-            console.log(
-              `User not found, creating new user for Clerk ID: ${clerkId}`
-            );
-
-            user = new User({
-              clerkId: clerkId,
-              username: `user_${clerkId.slice(-8)}`,
-              email: "",
-              firstName: "",
-              lastName: "",
-              profileImage: "",
-              stats: {
-                totalDuels: 0,
-                wins: 0,
-                losses: 0,
-                rating: 1200,
-              },
+          if (user) {
+            socket.userId = user._id.toString();
+            socket.clerkId = userId;
+            socket.username = user.username;
+            console.log(`User authenticated: ${user.username}`);
+            socket.emit("authenticated", {
+              success: true,
+              username: user.username,
+              userId: user._id.toString(),
             });
-
-            await user.save();
-            console.log(`Created new user: ${user.username}`);
+          } else {
+            socket.emit("error", { message: "User not found" });
           }
-
-          socket.userId = user._id.toString();
-          socket.clerkId = clerkId;
-          socket.username = user.username;
-          console.log(`User authenticated: ${user.username}`);
-          socket.emit("authenticated", {
-            success: true,
-            username: user.username,
-            userId: user._id.toString(),
-          });
         } catch (error) {
           console.error("Authentication error:", error);
-          socket.emit("error", {
-            message: "Authentication failed: " + error.message,
-          });
+          socket.emit("error", { message: "Authentication failed" });
         }
       });
 
@@ -257,56 +227,6 @@ class SocketManager {
             userId: socket.userId,
             isReady: participant.isReady,
           });
-
-          // Check if both players are ready and auto-start
-          const allReady =
-            room.participants.length === 2 &&
-            room.participants.every((p) => p.isReady);
-
-          if (allReady && room.status === "waiting") {
-            console.log(
-              `All players ready in room ${roomCode}, auto-starting duel...`
-            );
-
-            // Auto-start the duel
-            setTimeout(async () => {
-              try {
-                // Update room status
-                room.status = "active";
-                room.startTime = new Date();
-
-                // Get a random problem for the duel
-                const Problem = (await import("../models/Problem.js")).default;
-                const problems = await Problem.find();
-
-                if (problems.length === 0) {
-                  console.error("No problems found in database");
-                  this.io
-                    .to(roomCode)
-                    .emit("error", { message: "No problems available" });
-                  return;
-                }
-
-                const randomProblem =
-                  problems[Math.floor(Math.random() * problems.length)];
-                room.problem = randomProblem;
-
-                console.log(
-                  `Duel started in room: ${roomCode} with problem: ${randomProblem.title}`
-                );
-
-                // Notify all participants that the duel has started
-                this.io
-                  .to(roomCode)
-                  .emit("duel-started", { room, problem: randomProblem });
-              } catch (error) {
-                console.error("Error auto-starting duel:", error);
-                this.io
-                  .to(roomCode)
-                  .emit("error", { message: "Failed to start duel" });
-              }
-            }, 2000); // 2 second delay to show "All ready" state briefly
-          }
         } catch (error) {
           console.error("Toggle ready error:", error);
           socket.emit("error", { message: "Failed to toggle ready status" });
@@ -407,7 +327,7 @@ class SocketManager {
             return;
           }
 
-          const { roomCode, code, result } = data;
+          const { roomCode, code } = data;
           const room = rooms.get(roomCode);
 
           if (!room) {
@@ -428,31 +348,24 @@ class SocketManager {
             return;
           }
 
-          // Players can submit multiple times until they get it right
+          if (participant.hasSubmitted) {
+            socket.emit("error", { message: "Already submitted" });
+            return;
+          }
+
+          // Mark as submitted
+          participant.hasSubmitted = true;
           participant.submissionTime = new Date();
           participant.code = code;
-          participant.submissionResult = result;
 
-          console.log(
-            `${socket.username} submitted code in room: ${roomCode}, passed: ${result?.passedCount}/${result?.totalCount}`
+          console.log(`${socket.username} submitted code in room: ${roomCode}`);
+
+          // Check if this is the first submission (winner)
+          const allSubmissions = room.participants.filter(
+            (p) => p.hasSubmitted
           );
-
-          // Notify room about submission attempt
-          this.io.to(roomCode).emit("submission-received", {
-            userId: socket.userId,
-            username: socket.username,
-            passed: result?.passedCount || 0,
-            total: result?.totalCount || 0,
-            isCorrect: result?.passedCount === result?.totalCount,
-          });
-
-          // Only end game on CORRECT submission (first to solve wins)
-          if (
-            result?.passedCount === result?.totalCount &&
-            result?.totalCount > 0
-          ) {
-            // Mark as successfully submitted and end the game
-            participant.hasSubmitted = true;
+          if (allSubmissions.length === 1) {
+            // First submission wins
             room.winner = socket.userId;
             room.status = "finished";
             room.endTime = new Date();
@@ -463,57 +376,36 @@ class SocketManager {
                 userId: socket.userId,
                 username: socket.username,
               },
-              reason: "correct-submission",
-              finalResults: room.participants.map((p) => ({
-                userId: p.userId,
-                username: p.username,
-                passed: p.submissionResult?.passedCount || 0,
-                total: p.submissionResult?.totalCount || 0,
-                submissionTime: p.submissionTime,
-              })),
+              reason: "first-submission",
+            });
+          } else if (allSubmissions.length === room.participants.length) {
+            // All submitted, determine winner by time
+            const sortedSubmissions = allSubmissions.sort(
+              (a, b) => new Date(a.submissionTime) - new Date(b.submissionTime)
+            );
+            const winner = sortedSubmissions[0];
+
+            room.winner = winner.userId;
+            room.status = "finished";
+            room.endTime = new Date();
+
+            this.io.to(roomCode).emit("duel-finished", {
+              room,
+              winner: {
+                userId: winner.userId,
+                username: winner.username,
+              },
+              reason: "fastest-submission",
             });
           } else {
-            // Check if all submitted without correct answers
-            const allSubmissions = room.participants.filter(
-              (p) => p.hasSubmitted
-            );
-            if (allSubmissions.length === room.participants.length) {
-              // All submitted, find best score or fastest time
-              const bestScore = Math.max(
-                ...allSubmissions.map(
-                  (p) => p.submissionResult?.passedCount || 0
-                )
-              );
-              const bestSubmissions = allSubmissions.filter(
-                (p) => (p.submissionResult?.passedCount || 0) === bestScore
-              );
-
-              // If tied on score, winner by time
-              const winner = bestSubmissions.sort(
-                (a, b) =>
-                  new Date(a.submissionTime) - new Date(b.submissionTime)
-              )[0];
-
-              room.winner = winner.userId;
-              room.status = "finished";
-              room.endTime = new Date();
-
-              this.io.to(roomCode).emit("duel-finished", {
-                room,
-                winner: {
-                  userId: winner.userId,
-                  username: winner.username,
-                },
-                reason: "best-score",
-                finalResults: room.participants.map((p) => ({
-                  userId: p.userId,
-                  username: p.username,
-                  passed: p.submissionResult?.passedCount || 0,
-                  total: p.submissionResult?.totalCount || 0,
-                  submissionTime: p.submissionTime,
-                })),
-              });
-            }
+            // Notify submission
+            this.io.to(roomCode).emit("participant-submitted", {
+              room,
+              submittedUser: {
+                userId: socket.userId,
+                username: socket.username,
+              },
+            });
           }
         } catch (error) {
           console.error("Submit code error:", error);
@@ -559,47 +451,6 @@ class SocketManager {
         } catch (error) {
           console.error("Send message error:", error);
           socket.emit("error", { message: "Failed to send message" });
-        }
-      });
-
-      // Handle chat messages (alternative event name for frontend compatibility)
-      socket.on("chat-message", (data) => {
-        try {
-          if (!socket.userId) {
-            socket.emit("error", { message: "Not authenticated" });
-            return;
-          }
-
-          const { roomCode, message } = data;
-          const room = rooms.get(roomCode);
-
-          if (!room) {
-            socket.emit("error", { message: "Room not found" });
-            return;
-          }
-
-          const participant = room.participants.find(
-            (p) => p.userId === socket.userId
-          );
-          if (!participant) {
-            socket.emit("error", { message: "Not in room" });
-            return;
-          }
-
-          const chatMessage = {
-            userId: socket.userId,
-            username: socket.username,
-            message: message.trim(),
-            timestamp: new Date(),
-          };
-
-          room.chatMessages.push(chatMessage);
-
-          // Broadcast message to all participants
-          this.io.to(roomCode).emit("chat-message", chatMessage);
-        } catch (error) {
-          console.error("Chat message error:", error);
-          socket.emit("error", { message: "Failed to send chat message" });
         }
       });
 

@@ -11,4 +11,18 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  optimizeDeps: {
+    include: ["monaco-editor"],
+  },
+  define: {
+    "process.env": {},
+  },
+  worker: {
+    format: "es",
+  },
+  server: {
+    fs: {
+      allow: [".."],
+    },
+  },
 });

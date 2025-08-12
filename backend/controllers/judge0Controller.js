@@ -1,4 +1,5 @@
 import { configDotenv } from "dotenv";
+import Problem from "../models/Problem.js";
 configDotenv();
 
 const JUDGE0_BASE_URL = process.env.JUDGE0_BASE_URL;
@@ -168,6 +169,230 @@ export const getBatchSubmissions = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       error: "Failed to fetch batch submissions",
+      message: error.message,
+    });
+  }
+};
+
+// Run code with sample test cases (for practice/run button)
+export const runCodeWithTests = async (req, res) => {
+  try {
+    const { source_code, language_id, problem_id } = req.body;
+
+    if (!source_code || !language_id || !problem_id) {
+      return res.status(400).json({
+        error:
+          "Missing required fields: source_code, language_id, and problem_id are required",
+      });
+    }
+
+    // Get the problem to access test cases
+    const problem = await Problem.findById(problem_id);
+    if (!problem) {
+      return res.status(404).json({
+        error: "Problem not found",
+      });
+    }
+
+    // Get sample test cases (non-hidden ones)
+    const sampleTestCases = problem.testCases.filter(
+      (testCase) => !testCase.isHidden
+    );
+
+    if (sampleTestCases.length === 0) {
+      return res.status(400).json({
+        error: "No sample test cases available for this problem",
+      });
+    }
+
+    // Run code against sample test cases
+    const results = [];
+
+    for (const testCase of sampleTestCases) {
+      try {
+        const submission = {
+          source_code,
+          language_id,
+          stdin: testCase.input,
+          cpu_time_limit: 2,
+          memory_limit: 128000,
+          wall_time_limit: 5,
+        };
+
+        const result = await makeJudge0Request(
+          "/submissions?base64_encoded=false&wait=true",
+          {
+            method: "POST",
+            body: JSON.stringify(submission),
+          }
+        );
+
+        // Clean output for comparison
+        const actualOutput = result.stdout ? result.stdout.trim() : "";
+        const expectedOutput = testCase.expectedOutput.trim();
+        const passed = actualOutput === expectedOutput;
+
+        results.push({
+          input: testCase.input,
+          expectedOutput: expectedOutput,
+          actualOutput: actualOutput,
+          passed: passed,
+          error: result.stderr || null,
+          status: result.status,
+        });
+      } catch (error) {
+        results.push({
+          input: testCase.input,
+          expectedOutput: testCase.expectedOutput,
+          actualOutput: "",
+          passed: false,
+          error: error.message,
+          status: { description: "Runtime Error" },
+        });
+      }
+    }
+
+    const passedCount = results.filter((r) => r.passed).length;
+    const totalCount = results.length;
+
+    res.json({
+      success: true,
+      passedCount,
+      totalCount,
+      allPassed: passedCount === totalCount,
+      testResults: results,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to run code with test cases",
+      message: error.message,
+    });
+  }
+};
+
+// Submit code with all test cases (for submission)
+export const submitCodeWithTests = async (req, res) => {
+  try {
+    console.log("📝 submitCodeWithTests called with body:", req.body);
+    const { source_code, language_id, problem_id } = req.body;
+
+    if (!source_code || !language_id || !problem_id) {
+      console.log("❌ Missing required fields:", {
+        source_code: !!source_code,
+        language_id: !!language_id,
+        problem_id: !!problem_id,
+      });
+      return res.status(400).json({
+        error:
+          "Missing required fields: source_code, language_id, and problem_id are required",
+      });
+    }
+
+    console.log("🔍 Looking for problem with ID:", problem_id);
+    // Get the problem to access all test cases
+    const problem = await Problem.findById(problem_id);
+    if (!problem) {
+      console.log("❌ Problem not found for ID:", problem_id);
+      return res.status(404).json({
+        error: "Problem not found",
+      });
+    }
+
+    console.log("✅ Problem found:", problem.title);
+    // Get all test cases (including hidden ones)
+    const allTestCases = problem.testCases;
+    console.log("📊 Test cases count:", allTestCases.length);
+
+    if (allTestCases.length === 0) {
+      console.log("❌ No test cases available");
+      return res.status(400).json({
+        error: "No test cases available for this problem",
+      });
+    }
+
+    // Run code against all test cases
+    const results = [];
+    let passedCount = 0;
+
+    for (const testCase of allTestCases) {
+      try {
+        const submission = {
+          source_code,
+          language_id,
+          stdin: testCase.input,
+          cpu_time_limit: 2,
+          memory_limit: 128000,
+          wall_time_limit: 5,
+        };
+
+        const result = await makeJudge0Request(
+          "/submissions?base64_encoded=false&wait=true",
+          {
+            method: "POST",
+            body: JSON.stringify(submission),
+          }
+        );
+
+        // Clean output for comparison
+        const actualOutput = result.stdout ? result.stdout.trim() : "";
+        const expectedOutput = testCase.expectedOutput.trim();
+        const passed = actualOutput === expectedOutput;
+
+        if (passed) passedCount++;
+
+        // For submission, we don't show details of hidden test cases
+        if (!testCase.isHidden) {
+          results.push({
+            input: testCase.input,
+            expectedOutput: expectedOutput,
+            actualOutput: actualOutput,
+            passed: passed,
+            error: result.stderr || null,
+            status: result.status,
+            isHidden: false,
+          });
+        } else {
+          results.push({
+            passed: passed,
+            isHidden: true,
+          });
+        }
+      } catch (error) {
+        if (!testCase.isHidden) {
+          results.push({
+            input: testCase.input,
+            expectedOutput: testCase.expectedOutput,
+            actualOutput: "",
+            passed: false,
+            error: error.message,
+            status: { description: "Runtime Error" },
+            isHidden: false,
+          });
+        } else {
+          results.push({
+            passed: false,
+            isHidden: true,
+          });
+        }
+      }
+    }
+
+    const totalCount = allTestCases.length;
+    const accepted = passedCount === totalCount;
+
+    res.json({
+      success: true,
+      accepted,
+      passedCount,
+      totalCount,
+      testResults: results,
+      verdict: accepted
+        ? "Accepted"
+        : `Wrong Answer (${passedCount}/${totalCount} test cases passed)`,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to submit code with test cases",
       message: error.message,
     });
   }
