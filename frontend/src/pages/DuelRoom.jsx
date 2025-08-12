@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSocket } from '@/contexts/SocketContext';
 import { useUserContext } from '@/contexts/UserContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { apiClient } from '@/lib/api';
 import { Editor } from '@monaco-editor/react';
 import { Button } from '@/components/ui/button';
@@ -9,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Avatar } from '@/components/ui/avatar';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { 
   Copy, 
@@ -51,6 +52,7 @@ export default function DuelRoom() {
   const navigate = useNavigate();
   const { socket } = useSocket();
   const { user } = useUserContext();
+  const { theme } = useTheme();
 
   const [room, setRoom] = useState(null);
   const [code, setCode] = useState('');
@@ -344,7 +346,7 @@ export default function DuelRoom() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading duel room...</p>
+          <p className="text-muted-foreground">Loading duel room...</p>
         </div>
       </div>
     );
@@ -369,7 +371,7 @@ export default function DuelRoom() {
     console.log('isWinner:', isWinner);
     
     return (
-      <div className="min-h-screen bg-gray-50 p-4">
+      <div className="min-h-screen bg-background p-4">
         <div className="max-w-4xl mx-auto">
           <Card className="text-center p-8">
             <CardContent>
@@ -378,13 +380,13 @@ export default function DuelRoom() {
                   <div className="text-green-600">
                     <Trophy className="h-16 w-16 mx-auto mb-4" />
                     <h1 className="text-4xl font-bold mb-2">Victory! 🎉</h1>
-                    <p className="text-xl text-gray-600">Congratulations! You won the duel!</p>
+                    <p className="text-xl text-muted-foreground">Congratulations! You won the duel!</p>
                   </div>
                 ) : (
                   <div className="text-red-600">
                     <X className="h-16 w-16 mx-auto mb-4" />
                     <h1 className="text-4xl font-bold mb-2">Defeat 😔</h1>
-                    <p className="text-xl text-gray-600">{winnerName} won this duel!</p>
+                    <p className="text-xl text-muted-foreground">{winnerName} won this duel!</p>
                   </div>
                 )}
               </div>
@@ -397,7 +399,9 @@ export default function DuelRoom() {
                       <div 
                         key={index}
                         className={`p-3 rounded-lg border ${
-                          result.userId === user?.id ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'
+                          result.userId === user?.id 
+                            ? 'bg-primary/10 border-primary/20 dark:bg-primary/20 dark:border-primary/30' 
+                            : 'bg-muted/50 border-border dark:bg-muted/30'
                         }`}
                       >
                         <div className="flex justify-between items-center">
@@ -407,7 +411,7 @@ export default function DuelRoom() {
                               {result.passed}/{result.total} passed
                             </Badge>
                             {result.submissionTime && (
-                              <span className="text-sm text-gray-500">
+                              <span className="text-sm text-muted-foreground">
                                 {new Date(result.submissionTime).toLocaleTimeString()}
                               </span>
                             )}
@@ -435,10 +439,10 @@ export default function DuelRoom() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="max-w-7xl mx-auto">
         {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded-lg">
+          <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg">
             {error}
           </div>
         )}
@@ -447,7 +451,7 @@ export default function DuelRoom() {
         <div className="mb-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-gray-900">Coding Duel</h1>
+              <h1 className="text-2xl font-bold text-high-contrast">Coding Duel</h1>
               <div className="flex items-center space-x-2">
                 <Badge variant="outline" className="font-mono">
                   {roomCode}
@@ -466,7 +470,7 @@ export default function DuelRoom() {
             {isDuelActive && (
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
-                  <Clock className="h-5 w-5 text-gray-600" />
+                  <Clock className="h-5 w-5 text-muted-foreground" />
                   <span className="font-mono text-lg font-semibold">
                     {formatTime(timeRemaining)}
                   </span>
@@ -492,7 +496,7 @@ export default function DuelRoom() {
                     <Users className="h-16 w-16 text-blue-600" />
                   </div>
                 </div>
-                <p className="text-gray-600">
+                <p className="text-muted-foreground">
                   Share the room code <strong>{roomCode}</strong> with someone to start the duel
                 </p>
                 <div className="flex justify-center">
@@ -523,17 +527,26 @@ export default function DuelRoom() {
                     >
                       <div className="flex items-center space-x-3">
                         <Avatar className="h-10 w-10">
-                          <img 
-                            src={participant.userId.profileImage || `https://ui-avatars.com/api/?name=${participant.userId.username}`}
+                          <AvatarImage 
+                            src={participant.userId.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(participant.userId.username || 'User')}&background=6366f1&color=fff&size=40`}
                             alt={participant.userId.username}
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
                           />
+                          <AvatarFallback className="text-sm font-medium bg-primary/10 text-primary">
+                            {participant.userId.username ? 
+                              participant.userId.username.substring(0, 2).toUpperCase() : 
+                              'U'
+                            }
+                          </AvatarFallback>
                         </Avatar>
-                        <span className="font-medium">{participant.userId.username}</span>
+                        <span className="font-medium text-high-contrast">{participant.userId.username}</span>
                       </div>
                       {participant.isReady ? (
                         <CheckCircle className="h-5 w-5 text-green-600" />
                       ) : (
-                        <div className="h-5 w-5 border-2 border-gray-300 rounded-full" />
+                        <div className="h-5 w-5 border-2 border-border rounded-full" />
                       )}
                     </div>
                   ))}
@@ -554,7 +567,7 @@ export default function DuelRoom() {
                 {/* Status Message */}
                 {room.participants.every(p => p.isReady) && (
                   <div className="text-center">
-                    <p className="text-green-600 font-semibold">All players ready! Starting in 2 seconds...</p>
+                    <p className="text-green-600 dark:text-green-400 font-semibold">All players ready! Starting in 2 seconds...</p>
                   </div>
                 )}
               </div>
@@ -578,9 +591,11 @@ export default function DuelRoom() {
                       </div>
                       <Badge 
                         className={
-                          room.problem.difficulty === 'Easy' ? 'bg-green-100 text-green-800 hover:bg-green-100' : 
-                          room.problem.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100' : 
-                          'bg-red-100 text-red-800 hover:bg-red-100'
+                          room.problem.difficulty === 'Easy' 
+                            ? 'bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-300' 
+                            : room.problem.difficulty === 'Medium' 
+                            ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-300' 
+                            : 'bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300'
                         }
                       >
                         {room.problem.difficulty}
@@ -589,28 +604,28 @@ export default function DuelRoom() {
                   </CardHeader>
                   <CardContent>
                     <div className="prose max-w-none">
-                      <p className="text-gray-700 whitespace-pre-line">
+                      <p className="text-high-contrast whitespace-pre-line">
                         {room.problem.description}
                       </p>
                       
                       {room.problem.examples && room.problem.examples.length > 0 && (
                         <div className="mt-4">
-                          <h4 className="font-semibold text-gray-900 mb-2">Examples:</h4>
+                          <h4 className="font-semibold text-high-contrast mb-2">Examples:</h4>
                           {room.problem.examples.map((example, index) => (
-                            <div key={index} className="bg-gray-50 p-4 rounded-lg mb-3 border">
+                            <div key={index} className="bg-muted/30 p-4 rounded-lg mb-3 border">
                               <div className="space-y-2">
                                 <div>
-                                  <strong className="text-gray-900">Input:</strong>
-                                  <code className="ml-2 px-2 py-1 bg-gray-200 rounded text-sm font-mono">{example.input}</code>
+                                  <strong className="text-high-contrast">Input:</strong>
+                                  <code className="ml-2 px-2 py-1 bg-muted rounded text-sm font-mono">{example.input}</code>
                                 </div>
                                 <div>
-                                  <strong className="text-gray-900">Output:</strong>
-                                  <code className="ml-2 px-2 py-1 bg-gray-200 rounded text-sm font-mono">{example.output}</code>
+                                  <strong className="text-high-contrast">Output:</strong>
+                                  <code className="ml-2 px-2 py-1 bg-muted rounded text-sm font-mono">{example.output}</code>
                                 </div>
                                 {example.explanation && (
                                   <div>
-                                    <strong className="text-gray-900">Explanation:</strong>
-                                    <span className="ml-2 text-gray-700">{example.explanation}</span>
+                                    <strong className="text-high-contrast">Explanation:</strong>
+                                    <span className="ml-2 text-medium-contrast">{example.explanation}</span>
                                   </div>
                                 )}
                               </div>
@@ -621,9 +636,9 @@ export default function DuelRoom() {
                       
                       {room.problem.constraints && (
                         <div className="mt-6">
-                          <h4 className="font-semibold text-gray-900 mb-3">Constraints:</h4>
-                          <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                            <pre className="text-sm text-gray-700 whitespace-pre-line font-mono">{room.problem.constraints}</pre>
+                          <h4 className="font-semibold text-high-contrast mb-3">Constraints:</h4>
+                          <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800/30">
+                            <pre className="text-sm text-high-contrast whitespace-pre-line font-mono">{room.problem.constraints}</pre>
                           </div>
                         </div>
                       )}
@@ -642,11 +657,25 @@ export default function DuelRoom() {
                       <select
                         value={selectedLanguage}
                         onChange={(e) => setSelectedLanguage(Number(e.target.value))}
-                        className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+                        className="px-3 py-1 border rounded-md text-sm focus:ring-2 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{
+                          backgroundColor: 'hsl(var(--card))',
+                          color: 'hsl(var(--foreground))',
+                          borderColor: 'hsl(var(--border))'
+                        }}
                         disabled={hasCorrectSubmission}
                       >
                         {Object.entries(LANGUAGE_OPTIONS).map(([id, lang]) => (
-                          <option key={id} value={id}>{lang.name}</option>
+                          <option 
+                            key={id} 
+                            value={id}
+                            style={{
+                              backgroundColor: 'hsl(var(--card))',
+                              color: 'hsl(var(--foreground))'
+                            }}
+                          >
+                            {lang.name}
+                          </option>
                         ))}
                       </select>
                       
@@ -665,13 +694,13 @@ export default function DuelRoom() {
                 <CardContent>
                   <div className="space-y-4">
                     {/* Monaco Editor */}
-                    <div className="border border-gray-300 rounded-lg overflow-hidden">
+                    <div className="border border-border rounded-lg overflow-hidden">
                       <Editor
                         height="400px"
                         language={LANGUAGE_OPTIONS[selectedLanguage]?.monacoId || 'python'}
                         value={code}
                         onChange={(value) => setCode(value || '')}
-                        theme="vs-dark"
+                        theme={theme === 'dark' ? 'vs-dark' : 'light'}
                         options={{
                           minimap: { enabled: false },
                           scrollBeyondLastLine: false,
@@ -706,7 +735,7 @@ export default function DuelRoom() {
                       </div>
 
                       {submissionResult && (
-                        <Badge variant="success" className="bg-green-100 text-green-800">
+                        <Badge variant="success" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
                           <Check className="h-4 w-4 mr-1" />
                           Submitted
                         </Badge>
@@ -724,8 +753,8 @@ export default function DuelRoom() {
                             {(runOutput || submissionResult) && (
                               <span className={`text-xs px-2 py-1 rounded ${
                                 (runOutput || submissionResult).accepted || (runOutput || submissionResult).allPassed 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-red-100 text-red-800'
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
+                                  : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
                               }`}>
                                 {(runOutput || submissionResult).verdict || 
                                  ((runOutput || submissionResult).allPassed ? 'All Tests Passed' : 
@@ -742,10 +771,10 @@ export default function DuelRoom() {
                                 {(runOutput || submissionResult).testResults.map((testResult, index) => (
                                   <div key={index} className={`border rounded-lg p-3 ${
                                     testResult.isHidden 
-                                      ? 'bg-gray-50' 
+                                      ? 'bg-muted/30' 
                                       : testResult.passed 
-                                        ? 'bg-green-50 border-green-200' 
-                                        : 'bg-red-50 border-red-200'
+                                        ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800/30' 
+                                        : 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800/30'
                                   }`}>
                                     <div className="flex items-center justify-between mb-2">
                                       <span className="text-sm font-medium">
@@ -763,31 +792,31 @@ export default function DuelRoom() {
                                     {!testResult.isHidden && (
                                       <div className="space-y-2 text-sm">
                                         <div>
-                                          <span className="font-medium text-gray-600">Input:</span>
-                                          <code className="ml-2 px-2 py-1 bg-gray-100 rounded font-mono text-xs">
+                                          <span className="font-medium text-high-contrast">Input:</span>
+                                          <code className="ml-2 px-2 py-1 bg-muted rounded font-mono text-xs text-high-contrast">
                                             {testResult.input}
                                           </code>
                                         </div>
                                         <div>
-                                          <span className="font-medium text-gray-600">Expected:</span>
-                                          <code className="ml-2 px-2 py-1 bg-gray-100 rounded font-mono text-xs">
+                                          <span className="font-medium text-high-contrast">Expected:</span>
+                                          <code className="ml-2 px-2 py-1 bg-muted rounded font-mono text-xs text-high-contrast">
                                             {testResult.expectedOutput}
                                           </code>
                                         </div>
                                         <div>
-                                          <span className="font-medium text-gray-600">Your Output:</span>
+                                          <span className="font-medium text-high-contrast">Your Output:</span>
                                           <code className={`ml-2 px-2 py-1 rounded font-mono text-xs ${
                                             testResult.passed 
-                                              ? 'bg-green-100 text-green-800' 
-                                              : 'bg-red-100 text-red-800'
+                                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
+                                              : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
                                           }`}>
                                             {testResult.actualOutput || '(no output)'}
                                           </code>
                                         </div>
                                         {testResult.error && (
                                           <div>
-                                            <span className="font-medium text-red-600">Error:</span>
-                                            <pre className="ml-2 text-xs text-red-600 bg-red-50 p-2 rounded font-mono">
+                                            <span className="font-medium text-red-600 dark:text-red-400">Error:</span>
+                                            <pre className="ml-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-2 rounded font-mono">
                                               {testResult.error}
                                             </pre>
                                           </div>
@@ -801,27 +830,27 @@ export default function DuelRoom() {
                             
                             {/* Legacy output for backward compatibility */}
                             {!(runOutput || submissionResult)?.testResults && (runOutput || submissionResult) && (
-                              <div className="bg-gray-900 text-gray-100 p-3 rounded-lg font-mono text-sm">
+                              <div className="bg-muted/50 border p-3 rounded-lg font-mono text-sm">
                                 <div className="space-y-1">
                                   {(runOutput || submissionResult).stdout && (
                                     <div>
-                                      <div className="text-green-400 text-xs">OUTPUT:</div>
-                                      <pre className="whitespace-pre-wrap">{(runOutput || submissionResult).stdout}</pre>
+                                      <div className="text-green-600 dark:text-green-400 text-xs font-medium">OUTPUT:</div>
+                                      <pre className="whitespace-pre-wrap text-high-contrast">{(runOutput || submissionResult).stdout}</pre>
                                     </div>
                                   )}
                                   {(runOutput || submissionResult).stderr && (
                                     <div>
-                                      <div className="text-red-400 text-xs">ERROR:</div>
-                                      <pre className="whitespace-pre-wrap text-red-300">{(runOutput || submissionResult).stderr}</pre>
+                                      <div className="text-red-600 dark:text-red-400 text-xs font-medium">ERROR:</div>
+                                      <pre className="whitespace-pre-wrap text-red-600 dark:text-red-400">{(runOutput || submissionResult).stderr}</pre>
                                     </div>
                                   )}
                                   {(runOutput || submissionResult).compile_output && (
                                     <div>
-                                      <div className="text-yellow-400 text-xs">COMPILE OUTPUT:</div>
-                                      <pre className="whitespace-pre-wrap text-yellow-300">{(runOutput || submissionResult).compile_output}</pre>
+                                      <div className="text-yellow-600 dark:text-yellow-400 text-xs font-medium">COMPILE OUTPUT:</div>
+                                      <pre className="whitespace-pre-wrap text-yellow-600 dark:text-yellow-400">{(runOutput || submissionResult).compile_output}</pre>
                                     </div>
                                   )}
-                                  <div className="text-gray-400 text-xs">
+                                  <div className="text-medium-contrast text-xs">
                                     Status: {(runOutput || submissionResult).status?.description || 'Unknown'}
                                     {(runOutput || submissionResult).time && ` | Time: ${(runOutput || submissionResult).time}s`}
                                     {(runOutput || submissionResult).memory && ` | Memory: ${(runOutput || submissionResult).memory} KB`}
@@ -853,14 +882,23 @@ export default function DuelRoom() {
                     <div key={participant.userId._id || participant.userId} className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex items-center space-x-3">
                         <Avatar className="h-10 w-10">
-                          <img 
-                            src={participant.userId.profileImage || `https://ui-avatars.com/api/?name=${participant.userId.username}`}
+                          <AvatarImage 
+                            src={participant.userId.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(participant.userId.username || 'User')}&background=6366f1&color=fff&size=40`}
                             alt={participant.userId.username}
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
                           />
+                          <AvatarFallback className="text-sm font-medium bg-primary/10 text-primary">
+                            {participant.userId.username ? 
+                              participant.userId.username.substring(0, 2).toUpperCase() : 
+                              'U'
+                            }
+                          </AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="font-medium">{participant.userId.username}</p>
-                          <p className="text-sm text-gray-500">
+                          <p className="font-medium text-high-contrast">{participant.userId.username}</p>
+                          <p className="text-sm text-medium-contrast">
                             {participant.hasSubmitted ? 'Submitted' : 'Coding...'}
                           </p>
                         </div>
@@ -880,14 +918,14 @@ export default function DuelRoom() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="h-48 overflow-y-auto space-y-2 border border-gray-200 rounded-lg p-3">
+                    <div className="h-48 overflow-y-auto space-y-2 border rounded-lg p-3">
                       {chatMessages.length === 0 ? (
-                        <p className="text-gray-500 text-sm text-center">No messages yet</p>
+                        <p className="text-medium-contrast text-sm text-center">No messages yet</p>
                       ) : (
                         chatMessages.map((msg, index) => (
                           <div key={index} className="text-sm">
-                            <span className="font-medium text-blue-600">{msg.username}:</span>
-                            <span className="ml-2">{msg.message}</span>
+                            <span className="font-medium text-primary">{msg.username}:</span>
+                            <span className="ml-2 text-high-contrast">{msg.message}</span>
                           </div>
                         ))
                       )}
@@ -944,13 +982,13 @@ export default function DuelRoom() {
                       <Badge variant={result.passed ? "default" : "destructive"}>
                         {result.passed ? "Passed" : "Failed"}
                       </Badge>
-                      <span className="text-sm text-gray-500">
+                      <span className="text-sm text-muted-foreground">
                         {new Date(result.submittedAt).toLocaleTimeString()}
                       </span>
                     </div>
                   </div>
                 )) || (
-                  <p className="text-gray-500">No results available</p>
+                  <p className="text-muted-foreground">No results available</p>
                 )}
               </div>
 

@@ -35,7 +35,7 @@
   --secondary: 217.2 32.6% 17.5%;
   --secondary-foreground: 210 40% 98%;
   --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
+  --muted-foreground: 215 20.2% 80%;
   --accent: 217.2 32.6% 17.5%;
   --accent-foreground: 210 40% 98%;
   --destructive: 0 62.8% 30.6%;
@@ -47,6 +47,23 @@
 
 * {
   border-color: hsl(var(--border));
+}
+
+/* High contrast text utilities for better accessibility */
+.text-high-contrast {
+  color: hsl(var(--foreground));
+}
+
+.dark .text-high-contrast {
+  color: #f8fafc !important; /* Very light gray/white for dark mode */
+}
+
+.text-medium-contrast {
+  color: hsl(var(--muted-foreground));
+}
+
+.dark .text-medium-contrast {
+  color: #cbd5e1 !important; /* Light gray for dark mode */
 }
 
 body {
