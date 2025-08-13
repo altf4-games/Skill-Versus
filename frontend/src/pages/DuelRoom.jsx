@@ -52,7 +52,7 @@ export default function DuelRoom() {
   const { roomCode } = useParams();
   const navigate = useNavigate();
   const { socket } = useSocket();
-  const { user } = useUserContext();
+  const { user, syncUser } = useUserContext();
   const { theme } = useTheme();
 
   const [room, setRoom] = useState(null);
@@ -150,7 +150,7 @@ export default function DuelRoom() {
       }
     };
 
-    const handleDuelFinished = (data) => {
+    const handleDuelFinished = async (data) => {
       console.log('Duel finished:', data);
       console.log('Winner data:', data.winner);
       setDuelResult(data);
@@ -158,15 +158,29 @@ export default function DuelRoom() {
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
+
+      // Refresh user data to update stats on dashboard
+      try {
+        await syncUser();
+      } catch (error) {
+        console.error('Failed to refresh user data after duel:', error);
+      }
     };
 
-    const handleTypingDuelFinished = (data) => {
+    const handleTypingDuelFinished = async (data) => {
       console.log('Typing duel finished:', data);
       console.log('Winner data:', data.winner);
       setDuelResult(data);
       setRoom(data.room);
       if (timerRef.current) {
         clearInterval(timerRef.current);
+      }
+
+      // Refresh user data to update stats on dashboard
+      try {
+        await syncUser();
+      } catch (error) {
+        console.error('Failed to refresh user data after duel:', error);
       }
     };
 

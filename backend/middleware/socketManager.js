@@ -5,12 +5,44 @@ import {
   getRandomTypingText,
   calculateTypingStats,
 } from "../utils/typingTexts.js";
+import { calculateXPGain } from "../utils/helpers.js";
 
 // In-memory storage for rooms - real-time data should not be persisted to MongoDB
 const rooms = new Map();
 
 function generateRoomCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+// Helper function to update user stats after duel completion
+async function updateUserStats(userId, isWinner) {
+  try {
+    // userId here is the MongoDB ObjectId, we need to find by _id
+    const user = await User.findById(userId);
+    if (!user) {
+      console.error(`User not found for stats update: ${userId}`);
+      return;
+    }
+
+    // Update stats
+    user.stats.totalDuels += 1;
+    if (isWinner) {
+      user.stats.wins += 1;
+      user.addXP(calculateXPGain(true)); // Winner gets more XP
+    } else {
+      user.stats.losses += 1;
+      user.addXP(calculateXPGain(false)); // Loser gets participation XP
+    }
+
+    await user.save();
+    console.log(
+      `Updated stats for ${user.username}: ${user.stats.wins}W/${user.stats.losses}L, ${user.stats.xp} XP, ${user.stats.rank}`
+    );
+
+    return user;
+  } catch (error) {
+    console.error(`Error updating user stats for ${userId}:`, error);
+  }
 }
 
 class SocketManager {
@@ -566,6 +598,12 @@ class SocketManager {
                 submissionTime: p.submissionTime,
               })),
             });
+
+            // Update user stats for all participants
+            for (const participant of room.participants) {
+              const isWinner = participant.userId === socket.userId;
+              await updateUserStats(participant.userId, isWinner);
+            }
           } else {
             // Check if all submitted without correct answers
             const allSubmissions = room.participants.filter(
@@ -607,6 +645,12 @@ class SocketManager {
                   submissionTime: p.submissionTime,
                 })),
               });
+
+              // Update user stats for all participants
+              for (const participant of room.participants) {
+                const isWinner = participant.userId === winner.userId;
+                await updateUserStats(participant.userId, isWinner);
+              }
             }
           }
         } catch (error) {
@@ -840,7 +884,7 @@ class SocketManager {
       });
 
       // Handle typing completion
-      socket.on("typing-completion", (data) => {
+      socket.on("typing-completion", async (data) => {
         try {
           if (!socket.userId) {
             socket.emit("error", { message: "Not authenticated" });
@@ -911,6 +955,12 @@ class SocketManager {
               isWinner: p.userId === socket.userId,
             })),
           });
+
+          // Update user stats for all participants
+          for (const participant of room.participants) {
+            const isWinner = participant.userId === socket.userId;
+            await updateUserStats(participant.userId, isWinner);
+          }
         } catch (error) {
           console.error("Typing completion error:", error);
           socket.emit("error", {

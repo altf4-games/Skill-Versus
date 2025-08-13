@@ -1,30 +1,93 @@
+import { useEffect } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import { useUserContext } from '@/contexts/UserContext'
+import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Separator } from '@/components/ui/separator'
 import { Progress } from '@/components/ui/progress'
 import { Link } from 'react-router-dom'
 import { Trophy, Zap, Users, Target, Clock, Star, TrendingUp, Medal, Flame, User } from 'lucide-react'
 
 export function DashboardPage() {
   const { user: clerkUser } = useUser()
-  const { user } = useUserContext()
+  const { user, syncUser } = useUserContext()
+  const navigate = useNavigate()
+
+  // Refresh user data when component mounts to ensure latest stats
+  useEffect(() => {
+    if (user) {
+      syncUser()
+    }
+  }, [])
+
+  // Calculate win rate
+  const winRate = user?.stats?.totalDuels > 0
+    ? ((user.stats.wins / user.stats.totalDuels) * 100).toFixed(1)
+    : 0
 
   const stats = [
     { label: "Total Duels", value: user?.stats?.totalDuels || 0, icon: Zap, color: "text-blue-500", bgColor: "bg-blue-500/10" },
     { label: "Wins", value: user?.stats?.wins || 0, icon: Trophy, color: "text-yellow-500", bgColor: "bg-yellow-500/10" },
+    { label: "Win Rate", value: `${winRate}%`, icon: TrendingUp, color: "text-green-500", bgColor: "bg-green-500/10" },
     { label: "Current Rank", value: user?.stats?.rank || "Iron", icon: Star, color: "text-gray-500", bgColor: "bg-gray-500/10" },
     { label: "XP Points", value: user?.stats?.xp?.toLocaleString() || "0", icon: Target, color: "text-purple-500", bgColor: "bg-purple-500/10" }
   ]
 
-  const recentDuels = [
-    { opponent: "CodeMaster99", skill: "DSA", result: "Win", time: "2 hours ago" },
-    { opponent: "CSSNinja", skill: "CSS", result: "Loss", time: "1 day ago" },
-    { opponent: "DebugPro", skill: "Debug", result: "Win", time: "2 days ago" }
-  ]
+  // Calculate rank progress
+  const calculateRankProgress = () => {
+    const currentXP = user?.stats?.xp || 0
+    const currentRank = user?.stats?.rank || "Iron"
+
+    const rankThresholds = {
+      "Iron": { next: "Bronze", threshold: 500 },
+      "Bronze": { next: "Silver", threshold: 2000 },
+      "Silver": { next: "Gold", threshold: 5000 },
+      "Gold": { next: "Platinum", threshold: 10000 },
+      "Platinum": { next: null, threshold: null }
+    }
+
+    const rankInfo = rankThresholds[currentRank]
+    if (!rankInfo || !rankInfo.next) {
+      return { progress: 100, nextRank: null, xpNeeded: 0 }
+    }
+
+    const previousThreshold = currentRank === "Iron" ? 0 :
+                             currentRank === "Bronze" ? 500 :
+                             currentRank === "Silver" ? 2000 :
+                             currentRank === "Gold" ? 5000 : 0
+
+    const xpInCurrentRank = currentXP - previousThreshold
+    const xpNeededForNext = rankInfo.threshold - previousThreshold
+    const progress = Math.min((xpInCurrentRank / xpNeededForNext) * 100, 100)
+    const xpNeeded = Math.max(rankInfo.threshold - currentXP, 0)
+
+    return {
+      progress: Math.round(progress),
+      nextRank: rankInfo.next,
+      xpNeeded
+    }
+  }
+
+  const rankProgress = calculateRankProgress()
+
+  // Quick action handlers
+  const handleQuickDuel = () => {
+    navigate('/duels')
+  }
+
+  const handleChallengeFriend = () => {
+    // For now, navigate to duels page where they can create a room
+    navigate('/duels')
+  }
+
+  const handlePracticeMode = () => {
+    // TODO: Implement practice mode - for now show alert
+    alert('Practice mode coming soon! For now, try creating a duel room.')
+  }
+
+
 
   return (
     <div className="space-y-8">
@@ -49,19 +112,28 @@ export function DashboardPage() {
           </div>
         </div>
         <div className="flex space-x-3">
-          <Button size="lg" className="bg-gradient-to-r from-blue-600 to-purple-700 hover:from-blue-700 hover:to-purple-800 text-white border-0 shadow-lg">
+          <Button
+            size="lg"
+            onClick={handleQuickDuel}
+            className="bg-gradient-to-r from-blue-600 to-purple-700 hover:from-blue-700 hover:to-purple-800 text-white border-0 shadow-lg"
+          >
             <Zap className="mr-2 h-5 w-5" />
             Quick Duel
           </Button>
-          <Button variant="outline" size="lg" className="border-2 hover:bg-muted/50">
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={handleChallengeFriend}
+            className="border-2 hover:bg-muted/50"
+          >
             <Users className="mr-2 h-5 w-5" />
-            Find Friends
+            Challenge Friend
           </Button>
         </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         {stats.map((stat, index) => {
           const Icon = stat.icon
           return (
@@ -74,10 +146,22 @@ export function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold">{stat.value}</div>
-                <div className="flex items-center space-x-1 mt-2">
-                  <TrendingUp className="h-3 w-3 text-green-500" />
-                  <span className="text-xs text-green-500">+12% from last week</span>
-                </div>
+                {stat.label === "Win Rate" && user?.stats?.totalDuels > 0 && (
+                  <div className="flex items-center space-x-1 mt-2">
+                    <TrendingUp className="h-3 w-3 text-green-500" />
+                    <span className="text-xs text-muted-foreground">
+                      {user.stats.wins} wins out of {user.stats.totalDuels} duels
+                    </span>
+                  </div>
+                )}
+                {stat.label === "XP Points" && (
+                  <div className="flex items-center space-x-1 mt-2">
+                    <Star className="h-3 w-3 text-yellow-500" />
+                    <span className="text-xs text-muted-foreground">
+                      Rank: {user?.stats?.rank || "Iron"}
+                    </span>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )
@@ -95,29 +179,20 @@ export function DashboardPage() {
             <CardDescription>Your latest battles in the arena</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {recentDuels.map((duel, index) => (
-              <div key={index} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                <div className="flex items-center space-x-3">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback className="text-xs">{duel.opponent[0]}</AvatarFallback>
-                  </Avatar>
-                  <div className="space-y-1">
-                    <p className="font-medium">vs {duel.opponent}</p>
-                    <div className="flex items-center space-x-2">
-                      <Badge variant="outline" className="text-xs">{duel.skill}</Badge>
-                      <span className="text-sm text-muted-foreground">{duel.time}</span>
-                    </div>
-                  </div>
-                </div>
-                <Badge variant={duel.result === 'Win' ? 'default' : 'destructive'}>
-                  {duel.result}
-                </Badge>
-              </div>
-            ))}
-            <Separator />
-            <Button variant="ghost" className="w-full">
-              View All Duels
-            </Button>
+            <div className="text-center py-8">
+              <Medal className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-muted-foreground mb-2">No duels yet</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Start your first duel to see your battle history here
+              </p>
+              <Button
+                onClick={handleQuickDuel}
+                className="bg-gradient-to-r from-blue-600 to-purple-700 hover:from-blue-700 hover:to-purple-800 text-white"
+              >
+                <Zap className="mr-2 h-4 w-4" />
+                Start Your First Duel
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
@@ -131,30 +206,47 @@ export function DashboardPage() {
               </CardTitle>
               <CardDescription>Jump into action</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <Button className="w-full justify-start bg-gradient-to-r from-blue-600 to-purple-700 hover:from-blue-700 hover:to-purple-800 text-white border-0 shadow-lg">
-                <Zap className="mr-2 h-4 w-4" />
-                Start Random Duel
+            <CardContent className="space-y-2 p-4">
+              <Button
+                onClick={handleQuickDuel}
+                className="w-full justify-start bg-gradient-to-r from-blue-600 to-purple-700 hover:from-blue-700 hover:to-purple-800 text-white border-0 shadow-lg h-10 px-3"
+              >
+                <Zap className="mr-2 h-4 w-4 flex-shrink-0" />
+                <span className="truncate">Quick Duel</span>
               </Button>
-              <Button className="w-full justify-start border-2 hover:bg-muted/50" variant="outline">
-                <Users className="mr-2 h-4 w-4" />
-                Challenge Friend
+              <Button
+                onClick={handleChallengeFriend}
+                className="w-full justify-start border-2 hover:bg-muted/50 h-10 px-3"
+                variant="outline"
+              >
+                <Users className="mr-2 h-4 w-4 flex-shrink-0" />
+                <span className="truncate">Challenge Friend</span>
               </Button>
-              <Button asChild className="w-full justify-start border-2 hover:bg-muted/50" variant="outline">
-                <Link to="/leaderboard">
-                  <Trophy className="mr-2 h-4 w-4" />
-                  View Leaderboard
+              <Button asChild variant="outline" className="w-full justify-start h-10 px-3">
+                <Link
+                  to="/leaderboard"
+                  className="w-full h-full flex items-center no-underline"
+                >
+                  <Trophy className="mr-2 h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">Leaderboard</span>
                 </Link>
               </Button>
-              <Button asChild className="w-full justify-start border-2 hover:bg-muted/50" variant="outline">
-                <Link to="/profile">
-                  <User className="mr-2 h-4 w-4" />
-                  Edit Profile
+              <Button asChild variant="outline" className="w-full justify-start h-10 px-3">
+                <Link
+                  to="/profile"
+                  className="w-full h-full flex items-center no-underline"
+                >
+                  <User className="mr-2 h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">Edit Profile</span>
                 </Link>
               </Button>
-              <Button className="w-full justify-start border-2 hover:bg-muted/50" variant="outline">
-                <Clock className="mr-2 h-4 w-4" />
-                Practice Mode
+              <Button
+                onClick={handlePracticeMode}
+                className="w-full justify-start border-2 hover:bg-muted/50 h-10 px-3"
+                variant="outline"
+              >
+                <Clock className="mr-2 h-4 w-4 flex-shrink-0" />
+                <span className="truncate">Practice Mode</span>
               </Button>
             </CardContent>
           </Card>
@@ -169,12 +261,31 @@ export function DashboardPage() {
               <CardDescription>Path to the next tier</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Iron → Bronze</span>
-                <span className="text-sm text-muted-foreground">75%</span>
-              </div>
-              <Progress value={75} className="h-2" />
-              <p className="text-xs text-muted-foreground">Win 5 more duels to advance to Bronze tier</p>
+              {rankProgress.nextRank ? (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">
+                      {user?.stats?.rank || "Iron"} → {rankProgress.nextRank}
+                    </span>
+                    <span className="text-sm text-muted-foreground">{rankProgress.progress}%</span>
+                  </div>
+                  <Progress value={rankProgress.progress} className="h-2" />
+                  <p className="text-xs text-muted-foreground">
+                    Earn {rankProgress.xpNeeded} more XP to advance to {rankProgress.nextRank} tier
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Platinum Rank</span>
+                    <span className="text-sm text-muted-foreground">MAX</span>
+                  </div>
+                  <Progress value={100} className="h-2" />
+                  <p className="text-xs text-muted-foreground">
+                    Congratulations! You've reached the highest rank.
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

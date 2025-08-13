@@ -219,9 +219,7 @@ export const getLeaderboard = async (req, res) => {
 
     // Only sort by global XP
     const users = await User.find({})
-      .select(
-        "username firstName lastName profileImage stats bio"
-      )
+      .select("username firstName lastName profileImage stats bio")
       .sort({ "stats.xp": -1 })
       .limit(limitNum)
       .skip(skip);
