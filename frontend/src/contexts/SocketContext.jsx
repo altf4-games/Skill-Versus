@@ -54,8 +54,20 @@ export const SocketProvider = ({ children }) => {
 
         newSocket.on('authenticated', (data) => {
           console.log('Authenticated successfully:', data);
+          clearTimeout(authTimeout);
           setIsAuthenticated(true);
         });
+
+        // Set a timeout for authentication
+        const authTimeout = setTimeout(() => {
+          if (!isAuthenticated) {
+            console.warn('Authentication timeout - retrying...');
+            newSocket.emit('authenticate', {
+              clerkUserId: user.id,
+              token: token,
+            });
+          }
+        }, 5000); // 5 second timeout
 
         newSocket.on('error', (error) => {
           console.error('Socket error:', error);
@@ -65,6 +77,7 @@ export const SocketProvider = ({ children }) => {
         setSocket(newSocket);
 
         return () => {
+          clearTimeout(authTimeout);
           newSocket.disconnect();
           setIsConnected(false);
           setIsAuthenticated(false);

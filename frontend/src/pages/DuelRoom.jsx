@@ -51,7 +51,7 @@ const LANGUAGE_OPTIONS = {
 export default function DuelRoom() {
   const { roomCode } = useParams();
   const navigate = useNavigate();
-  const { socket } = useSocket();
+  const { socket, isAuthenticated } = useSocket();
   const { user, syncUser } = useUserContext();
   const { theme } = useTheme();
 
@@ -112,8 +112,9 @@ export default function DuelRoom() {
   }, []);
 
   useEffect(() => {
-    if (!socket || !roomCode) return;
+    if (!socket || !roomCode || !isAuthenticated) return;
 
+    console.log('Socket authenticated, joining room:', roomCode);
     // Join room
     socket.emit('join-duel', { roomCode });
 
@@ -260,7 +261,7 @@ export default function DuelRoom() {
         clearInterval(timerRef.current);
       }
     };
-  }, [socket, roomCode]);
+  }, [socket, roomCode, isAuthenticated]);
 
   const startTimer = () => {
     if (timerRef.current) {
@@ -396,6 +397,18 @@ export default function DuelRoom() {
       setChatMessage('');
     }
   };
+
+  // Show loading while waiting for socket authentication
+  if (!socket || !isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Connecting to server...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!room) {
     return (

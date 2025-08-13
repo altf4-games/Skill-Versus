@@ -12,7 +12,7 @@ import { Swords, Users, Clock, Copy, Plus, LogIn, Code, Keyboard } from 'lucide-
 export default function DuelsPage() {
   const navigate = useNavigate()
   const { user } = useUser()
-  const { socket, isConnected } = useSocket()
+  const { socket, isConnected, isAuthenticated } = useSocket()
   const [joinCode, setJoinCode] = useState('')
   const [isCreating, setIsCreating] = useState(false)
   const [isJoining, setIsJoining] = useState(false)
@@ -20,7 +20,7 @@ export default function DuelsPage() {
   const [duelType, setDuelType] = useState('coding') // 'coding' or 'typing'
 
   useEffect(() => {
-    if (!socket || !isConnected) return
+    if (!socket || !isConnected || !isAuthenticated) return
 
     // Listen for duel creation success
     const handleDuelCreated = (data) => {
@@ -65,10 +65,10 @@ export default function DuelsPage() {
       socket.off('participant-joined', handleParticipantJoined)
       socket.off('error', handleError)
     }
-  }, [socket, isConnected, navigate])
+  }, [socket, isConnected, isAuthenticated, navigate])
 
   const handleCreateRoom = async () => {
-    if (!socket || !isConnected) {
+    if (!socket || !isConnected || !isAuthenticated) {
       alert('Not connected to server')
       return
     }
@@ -93,7 +93,7 @@ export default function DuelsPage() {
       return
     }
 
-    if (!socket || !isConnected) {
+    if (!socket || !isConnected || !isAuthenticated) {
       alert('Not connected to server')
       return
     }
@@ -108,12 +108,14 @@ export default function DuelsPage() {
     }
   }
 
-  if (!isConnected) {
+  if (!isConnected || !isAuthenticated) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Connecting to server...</p>
+          <p className="text-muted-foreground">
+            {!isConnected ? 'Connecting to server...' : 'Authenticating...'}
+          </p>
         </div>
       </div>
     )
