@@ -1,0 +1,21 @@
+User-agent: *
+Allow: /
+
+# Allow crawling of main pages
+Allow: /practice
+Allow: /duels
+Allow: /leaderboard
+Allow: /sign-up
+Allow: /sign-in
+
+# Disallow private/protected pages
+Disallow: /dashboard
+Disallow: /profile
+Disallow: /profile-setup
+Disallow: /duel/*
+
+# Disallow API endpoints
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://skillversus.com/sitemap.xml

@@ -9,11 +9,13 @@ import { Separator } from '@/components/ui/separator'
 import { Progress } from '@/components/ui/progress'
 import { useUserContext } from '@/contexts/UserContext'
 import { Link } from 'react-router-dom'
-import { User, Edit3, Save, X, Trophy, Target, Zap, Star, TrendingUp, Sword, Award, Medal } from 'lucide-react'
+import { User, Edit3, Save, X, Trophy, Target, Zap, Star, TrendingUp, Sword, Award, Medal, Users, UserPlus, UserMinus } from 'lucide-react'
+import { apiClient } from '@/lib/api'
 
 export function ProfilePage() {
   const { user: clerkUser } = useUser()
   const { user, updateUser } = useUserContext()
+  const { getToken } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -23,6 +25,13 @@ export function ProfilePage() {
     bio: ''
   })
 
+  // Friends state
+  const [friends, setFriends] = useState([])
+  const [friendRequests, setFriendRequests] = useState({ received: [], sent: [] })
+  const [newFriendUsername, setNewFriendUsername] = useState('')
+  const [isAddingFriend, setIsAddingFriend] = useState(false)
+  const [friendsLoading, setFriendsLoading] = useState(false)
+
   useEffect(() => {
     if (user) {
       setFormData({
@@ -31,8 +40,130 @@ export function ProfilePage() {
         lastName: user.lastName || '',
         bio: user.bio || ''
       })
+      loadFriendsData()
     }
   }, [user])
+
+  const loadFriendsData = async () => {
+    setFriendsLoading(true)
+    try {
+      const token = await getToken()
+
+      // Load friends and friend requests
+      const [friendsResponse, requestsResponse] = await Promise.all([
+        apiClient.request('/api/users/friends', {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        apiClient.request('/api/users/friends/requests', {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      ])
+
+      if (friendsResponse.success) {
+        setFriends(friendsResponse.friends)
+      }
+
+      if (requestsResponse.success) {
+        setFriendRequests(requestsResponse)
+      }
+    } catch (error) {
+      console.error('Failed to load friends data:', error)
+    } finally {
+      setFriendsLoading(false)
+    }
+  }
+
+  const sendFriendRequest = async () => {
+    if (!newFriendUsername.trim()) return
+
+    setIsAddingFriend(true)
+    try {
+      const token = await getToken()
+      const response = await apiClient.request('/api/users/friends/request', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username: newFriendUsername.trim() })
+      })
+
+      if (response.success) {
+        setNewFriendUsername('')
+        loadFriendsData() // Reload to show updated requests
+        alert(response.message || 'Friend request sent!')
+      }
+    } catch (error) {
+      console.error('Failed to send friend request:', error)
+      alert(error.message || 'Failed to send friend request')
+    } finally {
+      setIsAddingFriend(false)
+    }
+  }
+
+  const acceptFriendRequest = async (requestId) => {
+    try {
+      const token = await getToken()
+      const response = await apiClient.request('/api/users/friends/accept', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ requestId })
+      })
+
+      if (response.success) {
+        loadFriendsData() // Reload to show updated friends and requests
+        alert(response.message || 'Friend request accepted!')
+      }
+    } catch (error) {
+      console.error('Failed to accept friend request:', error)
+      alert(error.message || 'Failed to accept friend request')
+    }
+  }
+
+  const rejectFriendRequest = async (requestId) => {
+    try {
+      const token = await getToken()
+      const response = await apiClient.request('/api/users/friends/reject', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ requestId })
+      })
+
+      if (response.success) {
+        loadFriendsData() // Reload to show updated requests
+        alert(response.message || 'Friend request rejected')
+      }
+    } catch (error) {
+      console.error('Failed to reject friend request:', error)
+      alert(error.message || 'Failed to reject friend request')
+    }
+  }
+
+  const removeFriend = async (friendId) => {
+    if (!confirm('Are you sure you want to remove this friend?')) return
+
+    try {
+      const token = await getToken()
+      const response = await apiClient.request(`/api/users/friends/${friendId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+
+      if (response.success) {
+        loadFriendsData() // Reload to show updated friends
+        alert(response.message || 'Friend removed')
+      }
+    } catch (error) {
+      console.error('Failed to remove friend:', error)
+      alert(error.message || 'Failed to remove friend')
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -360,6 +491,131 @@ export function ProfilePage() {
                   <div className="text-center py-8">
                     <Target className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
                     <p className="text-muted-foreground">Complete your first duel to start earning achievements!</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Friends Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Users className="h-5 w-5 text-primary" />
+                <span>Friends</span>
+              </CardTitle>
+              <CardDescription>Manage your friends and friend requests</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Add Friend */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Add Friend</label>
+                <div className="flex space-x-2">
+                  <Input
+                    placeholder="Enter username"
+                    value={newFriendUsername}
+                    onChange={(e) => setNewFriendUsername(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && sendFriendRequest()}
+                  />
+                  <Button
+                    onClick={sendFriendRequest}
+                    disabled={isAddingFriend || !newFriendUsername.trim()}
+                    size="sm"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Friend Requests */}
+              {friendRequests.received.length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Friend Requests</label>
+                  <div className="space-y-2">
+                    {friendRequests.received.map((request) => (
+                      <div key={request.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={request.from.profileImage} />
+                            <AvatarFallback className="text-xs">
+                              {request.from.firstName?.[0]}{request.from.lastName?.[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm font-medium">{request.from.username}</span>
+                        </div>
+                        <div className="flex space-x-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => acceptFriendRequest(request.id)}
+                            className="h-6 px-2 text-xs"
+                          >
+                            Accept
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => rejectFriendRequest(request.id)}
+                            className="h-6 px-2 text-xs"
+                          >
+                            Reject
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <Separator />
+                </div>
+              )}
+
+              {/* Friends List */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Friends ({friends.length})
+                </label>
+                {friendsLoading ? (
+                  <div className="text-center py-4">
+                    <div className="text-sm text-muted-foreground">Loading friends...</div>
+                  </div>
+                ) : friends.length > 0 ? (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {friends.map((friend) => (
+                      <div key={friend.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={friend.profileImage} />
+                            <AvatarFallback className="text-xs">
+                              {friend.firstName?.[0]}{friend.lastName?.[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium">{friend.username}</span>
+                            <div className="flex items-center space-x-1">
+                              <div className={`h-2 w-2 rounded-full ${friend.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
+                              <span className="text-xs text-muted-foreground">
+                                {friend.isOnline ? 'Online' : 'Offline'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => removeFriend(friend.id)}
+                          className="h-6 px-2 text-xs hover:bg-destructive hover:text-destructive-foreground"
+                        >
+                          <UserMinus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <Users className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground">No friends yet</p>
+                    <p className="text-xs text-muted-foreground">Add friends by their username</p>
                   </div>
                 )}
               </div>

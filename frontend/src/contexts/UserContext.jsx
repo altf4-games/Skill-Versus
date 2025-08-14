@@ -72,15 +72,21 @@ export function UserProvider({ children }) {
     try {
       const token = await getToken()
       const response = await apiClient.updateUserProfile(token, userData)
-      
+
       if (response.success) {
         setUser(response.user)
         setNeedsProfileSetup(false)
         return response.user
+      } else {
+        // If response is not successful but no error was thrown
+        throw new Error(response.message || 'Failed to update profile')
       }
     } catch (error) {
       console.error('Failed to update user:', error)
-      throw error
+      // Re-throw the error with better context
+      const enhancedError = new Error(error.message || 'Failed to update profile')
+      enhancedError.status = error.status
+      throw enhancedError
     }
   }
 

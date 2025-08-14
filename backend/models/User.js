@@ -75,6 +75,39 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    // Friends functionality
+    friends: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    friendRequests: {
+      sent: [
+        {
+          to: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+          },
+          sentAt: {
+            type: Date,
+            default: Date.now,
+          },
+        },
+      ],
+      received: [
+        {
+          from: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+          },
+          sentAt: {
+            type: Date,
+            default: Date.now,
+          },
+        },
+      ],
+    },
   },
   {
     timestamps: true,
@@ -105,6 +138,23 @@ userSchema.methods.updateRank = function () {
 userSchema.methods.addXP = function (points) {
   this.stats.xp += points;
   this.updateRank();
+};
+
+// Friends methods
+userSchema.methods.isFriendWith = function (userId) {
+  return this.friends.includes(userId);
+};
+
+userSchema.methods.hasSentFriendRequestTo = function (userId) {
+  return this.friendRequests.sent.some(
+    (req) => req.to.toString() === userId.toString()
+  );
+};
+
+userSchema.methods.hasReceivedFriendRequestFrom = function (userId) {
+  return this.friendRequests.received.some(
+    (req) => req.from.toString() === userId.toString()
+  );
 };
 
 const User = mongoose.model("User", userSchema);

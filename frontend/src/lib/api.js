@@ -20,10 +20,28 @@ class ApiClient {
       const response = await fetch(url, config);
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        // Try to get error message from response body
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+
+          if (errorData.message) {
+            errorMessage = errorData.message;
+          } else if (errorData.error) {
+            errorMessage = errorData.error;
+          }
+        } catch {
+          // If we can't parse the error response, use the default message
+        }
+
+        const error = new Error(errorMessage);
+        error.status = response.status;
+        throw error;
       }
 
-      return await response.json();
+      const data = await response.json();
+
+      return data;
     } catch (error) {
       throw error;
     }
@@ -60,6 +78,41 @@ class ApiClient {
 
   async getLeaderboard() {
     return this.request("/api/users/leaderboard");
+  }
+
+  // Practice endpoints
+  async getPracticeLanguages() {
+    return this.request("/api/practice/languages");
+  }
+
+  async executePracticeCode(token, codeData) {
+    return this.request("/api/practice/execute", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(codeData),
+    });
+  }
+
+  async savePracticeSession(token, sessionData) {
+    return this.request("/api/practice/sessions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(sessionData),
+    });
+  }
+
+  async getPracticeSessions(token, page = 1, limit = 10) {
+    return this.request(`/api/practice/sessions?page=${page}&limit=${limit}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
   }
 
   // Note: Duel room operations are handled via socket.io, not HTTP endpoints

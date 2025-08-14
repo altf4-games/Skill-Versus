@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { SEO, seoConfigs } from '@/components/SEO'
 import { Swords, Code, Palette, Bug, Trophy, Users, Zap, Star, ArrowRight } from 'lucide-react'
 
 export function HomePage() {
@@ -37,7 +38,9 @@ export function HomePage() {
   ]
 
   return (
-    <div className="space-y-20">
+    <>
+      <SEO {...seoConfigs.home} />
+      <div className="space-y-20">
       {/* Hero Section */}
       <section className="relative text-center space-y-8 py-12">
         <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-purple-500/5 to-pink-500/5 rounded-3xl"></div>
@@ -239,5 +242,6 @@ export function HomePage() {
         </div>
       </section>
     </div>
+    </>
   )
 }

@@ -7,6 +7,12 @@ import {
   getLeaderboard,
   searchUsers,
   updateOnlineStatus,
+  sendFriendRequest,
+  acceptFriendRequest,
+  rejectFriendRequest,
+  removeFriend,
+  getFriends,
+  getFriendRequests,
 } from "../controllers/userController.js";
 import { requireAuth } from "@clerk/express";
 
@@ -17,6 +23,14 @@ router.post("/sync", requireAuth(), syncUser);
 router.get("/me", requireAuth(), getCurrentUser);
 router.put("/profile", requireAuth(), updateProfile);
 router.put("/status", requireAuth(), updateOnlineStatus);
+
+// Friends routes (protected)
+router.post("/friends/request", requireAuth(), sendFriendRequest);
+router.post("/friends/accept", requireAuth(), acceptFriendRequest);
+router.post("/friends/reject", requireAuth(), rejectFriendRequest);
+router.delete("/friends/:friendId", requireAuth(), removeFriend);
+router.get("/friends", requireAuth(), getFriends);
+router.get("/friends/requests", requireAuth(), getFriendRequests);
 
 // Public routes
 router.get("/profile/:identifier", getUserProfile);

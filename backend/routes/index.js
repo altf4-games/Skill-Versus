@@ -4,6 +4,7 @@ import judge0Routes from "./judge0Routes.js";
 import duelRoutes from "./duelRoutes.js";
 import problemRoutes from "./problemRoutes.js";
 import typingTextRoutes from "./typingTextRoutes.js";
+import practiceRoutes from "./practiceRoutes.js";
 
 const router = express.Router();
 
@@ -13,6 +14,7 @@ router.use("/judge0", judge0Routes);
 router.use("/duels", duelRoutes);
 router.use("/problems", problemRoutes);
 router.use("/typing-texts", typingTextRoutes);
+router.use("/practice", practiceRoutes);
 
 // Health check endpoint
 router.get("/health", (_req, res) => {

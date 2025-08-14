@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Progress } from '@/components/ui/progress'
 import { Link } from 'react-router-dom'
-import { Trophy, Zap, Users, Target, Clock, Star, TrendingUp, Medal, Flame, User } from 'lucide-react'
+import { Trophy, Zap, Users, Target, Clock, Star, TrendingUp, Medal, Flame, User, Code } from 'lucide-react'
 
 export function DashboardPage() {
   const { user: clerkUser } = useUser()
@@ -83,8 +83,7 @@ export function DashboardPage() {
   }
 
   const handlePracticeMode = () => {
-    // TODO: Implement practice mode - for now show alert
-    alert('Practice mode coming soon! For now, try creating a duel room.')
+    navigate('/practice')
   }
 
 
@@ -245,7 +244,7 @@ export function DashboardPage() {
                 className="w-full justify-start border-2 hover:bg-muted/50 h-10 px-3"
                 variant="outline"
               >
-                <Clock className="mr-2 h-4 w-4 flex-shrink-0" />
+                <Code className="mr-2 h-4 w-4 flex-shrink-0" />
                 <span className="truncate">Practice Mode</span>
               </Button>
             </CardContent>

@@ -3,7 +3,7 @@ import { useAuth, UserButton } from '@clerk/clerk-react'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { useTheme } from '@/contexts/ThemeContext'
-import { Swords, Trophy, User, Zap } from 'lucide-react'
+import { Swords, Trophy, User, Zap, Code, Calendar } from 'lucide-react'
 
 export function Navbar() {
   const { isSignedIn } = useAuth()
@@ -37,8 +37,17 @@ export function Navbar() {
                     <span>Duels</span>
                   </div>
                 </Link>
-                <Link 
-                  to="/leaderboard" 
+                <Link
+                  to="/practice"
+                  className="text-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors"
+                >
+                  <div className="flex items-center space-x-1">
+                    <Code className="h-4 w-4" />
+                    <span>Practice</span>
+                  </div>
+                </Link>
+                <Link
+                  to="/leaderboard"
                   className="text-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors"
                 >
                   <div className="flex items-center space-x-1">
@@ -46,8 +55,14 @@ export function Navbar() {
                     <span>Leaderboard</span>
                   </div>
                 </Link>
-                <Link 
-                  to="/profile" 
+                <div className="text-muted-foreground px-3 py-2 text-sm font-medium cursor-not-allowed">
+                  <div className="flex items-center space-x-1">
+                    <Calendar className="h-4 w-4" />
+                    <span>Contests (Coming Soon)</span>
+                  </div>
+                </div>
+                <Link
+                  to="/profile"
                   className="text-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors"
                 >
                   <div className="flex items-center space-x-1">
