@@ -150,6 +150,7 @@ class SocketManager {
             roomCode,
             host: socket.userId,
             hostUsername: socket.username,
+            duelType: "coding",
             problem: {
               id: problem._id.toString(),
               title: problem.title,
@@ -965,6 +966,107 @@ class SocketManager {
           console.error("Typing completion error:", error);
           socket.emit("error", {
             message: "Failed to handle typing completion",
+          });
+        }
+      });
+
+      // Handle anti-cheat violations
+      socket.on("anti-cheat-violation", async (data) => {
+        try {
+          const { roomCode, violation, userId } = data;
+
+          if (!roomCode || !violation) {
+            socket.emit("error", { message: "Invalid anti-cheat data" });
+            return;
+          }
+
+          const room = rooms.get(roomCode);
+          if (!room) {
+            socket.emit("error", { message: "Room not found" });
+            return;
+          }
+
+          const participant = room.participants.find(
+            (p) => p.userId === socket.userId
+          );
+          if (!participant) {
+            socket.emit("error", { message: "Not in room" });
+            return;
+          }
+
+          console.log(
+            `[ANTI-CHEAT] Violation detected - Room: ${roomCode}, User: ${socket.username}, Type: ${violation.type}`
+          );
+
+          // Log the violation
+          if (!room.antiCheatViolations) {
+            room.antiCheatViolations = [];
+          }
+
+          room.antiCheatViolations.push({
+            userId: socket.userId,
+            username: socket.username,
+            violation: violation,
+            timestamp: new Date(),
+          });
+
+          // For serious violations (focus loss, tab switch, fullscreen exit), end the duel
+          const seriousViolations = [
+            "FOCUS_LOST",
+            "TAB_SWITCH",
+            "FULLSCREEN_EXIT",
+          ];
+
+          if (seriousViolations.includes(violation.type)) {
+            // Mark the violating participant as disqualified
+            participant.disqualified = true;
+            participant.disqualificationReason = violation.message;
+
+            // Find the other participant as winner
+            const otherParticipant = room.participants.find(
+              (p) => p.userId !== socket.userId
+            );
+
+            if (otherParticipant && room.status === "active") {
+              room.winner = otherParticipant.userId;
+              room.status = "finished";
+              room.endTime = new Date();
+
+              console.log(
+                `[ANTI-CHEAT] Duel terminated - Room: ${roomCode}, Winner: ${otherParticipant.username}, Violator: ${socket.username}`
+              );
+
+              // Notify all participants about the violation and result
+              this.io.to(roomCode).emit("duel-finished", {
+                room,
+                winner: {
+                  userId: otherParticipant.userId,
+                  username: otherParticipant.username,
+                },
+                reason: "anti-cheat-violation",
+                violator: {
+                  userId: socket.userId,
+                  username: socket.username,
+                  violation: violation.message,
+                },
+              });
+
+              // Update user stats
+              await updateUserStats(otherParticipant.userId, true); // Winner
+              await updateUserStats(socket.userId, false); // Loser (disqualified)
+            }
+          } else {
+            // For minor violations, just notify other participants
+            socket.to(roomCode).emit("anti-cheat-warning", {
+              userId: socket.userId,
+              username: socket.username,
+              violation: violation,
+            });
+          }
+        } catch (error) {
+          console.error("Anti-cheat violation handler error:", error);
+          socket.emit("error", {
+            message: "Failed to process anti-cheat violation",
           });
         }
       });

@@ -13,20 +13,23 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
-import { 
-  Copy, 
-  Clock, 
-  Users, 
-  Send, 
-  Play, 
-  Trophy, 
-  Check, 
-  X, 
-  Code, 
-  Eye, 
+import {
+  Copy,
+  Clock,
+  Users,
+  Send,
+  Play,
+  Trophy,
+  Check,
+  X,
+  Code,
+  Eye,
   EyeOff,
-  CheckCircle
+  CheckCircle,
+  Shield,
+  AlertTriangle
 } from 'lucide-react';
+import { useAntiCheat } from '@/hooks/useAntiCheat';
 
 // Language templates like LeetCode
 const LANGUAGE_OPTIONS = {
@@ -71,6 +74,7 @@ export default function DuelRoom() {
   const [duelResult, setDuelResult] = useState(null);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState(null);
+  const [antiCheatWarning, setAntiCheatWarning] = useState('');
 
   const timerRef = useRef(null);
 
@@ -286,6 +290,49 @@ export default function DuelRoom() {
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
+
+  // Anti-cheat measures for coding duels
+  const handleAntiCheatViolation = (violation) => {
+    console.log('Anti-cheat violation detected:', violation);
+
+    // Notify server about the violation
+    if (socket) {
+      socket.emit('anti-cheat-violation', {
+        roomCode: roomCode,
+        violation: violation,
+        userId: user?.id
+      });
+    }
+
+    // Show violation message to user
+    setAntiCheatWarning(`Anti-cheat violation: ${violation.message}`);
+    setTimeout(() => setAntiCheatWarning(''), 5000);
+  };
+
+  const handleAntiCheatWarning = (message) => {
+    setAntiCheatWarning(message);
+    setTimeout(() => setAntiCheatWarning(''), 3000);
+  };
+
+  // Anti-cheat activation for coding duels
+  // For coding duels: either duelType is 'coding' OR duelType is undefined (legacy rooms)
+  const isCodingDuel = room?.duelType === 'coding' || (room?.duelType === undefined && room?.problem);
+  const antiCheatActive = room?.status === 'active' && isCodingDuel;
+
+  const {
+    isFullscreen,
+    hasFocus,
+    violations,
+    violationCount,
+    isFullscreenSupported
+  } = useAntiCheat({
+    isActive: antiCheatActive,
+    onViolation: handleAntiCheatViolation,
+    onWarning: handleAntiCheatWarning,
+    enableFullscreen: true,
+    enableCopyPastePrevention: true,
+    enableFocusDetection: true
+  });
 
   const handleToggleReady = () => {
     if (socket && roomCode) {
@@ -516,6 +563,14 @@ export default function DuelRoom() {
           </div>
         )}
 
+        {/* Anti-cheat warning for coding duels */}
+        {antiCheatWarning && room?.duelType !== 'typing' && (
+          <div className="mb-4 p-3 bg-red-100 dark:bg-red-900 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 rounded-lg text-center text-sm flex items-center justify-center space-x-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span>{antiCheatWarning}</span>
+          </div>
+        )}
+
         {/* Render typing interface for typing duels */}
         {room?.duelType === 'typing' ? (
           <TypingInterface 
@@ -555,6 +610,22 @@ export default function DuelRoom() {
             
             {isDuelActive && (
               <div className="flex items-center space-x-4">
+                {/* Anti-cheat status indicator for coding duels */}
+                <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-1">
+                    <Shield className={`h-4 w-4 ${hasFocus && isFullscreen ? 'text-green-600' : 'text-red-600'}`} />
+                    <span className="text-xs text-muted-foreground">
+                      {hasFocus && isFullscreen ? 'Secure' : 'Monitoring'}
+                    </span>
+                  </div>
+                  {!isFullscreenSupported && (
+                    <div className="flex items-center space-x-1 text-yellow-600">
+                      <AlertTriangle className="h-4 w-4" />
+                      <span className="text-xs">Fullscreen not supported</span>
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex items-center space-x-2">
                   <Clock className="h-5 w-5 text-muted-foreground" />
                   <span className="font-mono text-lg font-semibold">

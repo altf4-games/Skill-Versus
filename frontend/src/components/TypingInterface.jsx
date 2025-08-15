@@ -4,17 +4,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { 
-  Clock, 
-  Users, 
-  Trophy, 
+import {
+  Clock,
+  Users,
+  Trophy,
   RotateCcw,
   Target,
   Zap,
   CheckCircle2,
   XCircle,
-  Copy
+  Copy,
+  Shield,
+  AlertTriangle,
+  Maximize
 } from 'lucide-react';
+import { useAntiCheat } from '@/hooks/useAntiCheat';
 
 export default function TypingInterface({ 
   room, 
@@ -33,11 +37,54 @@ export default function TypingInterface({
   const [isFinished, setIsFinished] = useState(false);
   const [mistakes, setMistakes] = useState(0);
   const [copyFeedback, setCopyFeedback] = useState(false);
+  const [antiCheatWarning, setAntiCheatWarning] = useState('');
+  const [showAntiCheatInfo, setShowAntiCheatInfo] = useState(false);
   const inputRef = useRef(null);
 
   const words = room?.typingContent?.words || [];
   const totalWords = room?.typingContent?.totalWords || 0;
   const text = room?.typingContent?.text || '';
+
+  // Anti-cheat measures
+  const handleAntiCheatViolation = (violation) => {
+    console.log('Anti-cheat violation detected:', violation);
+
+    // Notify server about the violation
+    if (socket) {
+      socket.emit('anti-cheat-violation', {
+        roomCode: room.roomCode,
+        violation: violation,
+        userId: user?.id
+      });
+    }
+
+    // Show violation message to user
+    setAntiCheatWarning(`Anti-cheat violation: ${violation.message}`);
+    setTimeout(() => setAntiCheatWarning(''), 5000);
+  };
+
+  const handleAntiCheatWarning = (message) => {
+    setAntiCheatWarning(message);
+    setTimeout(() => setAntiCheatWarning(''), 3000);
+  };
+
+  // Anti-cheat activation for typing duels
+  const antiCheatActive = room?.status === 'active' && !isFinished;
+
+  const {
+    isFullscreen,
+    hasFocus,
+    violations,
+    violationCount,
+    isFullscreenSupported
+  } = useAntiCheat({
+    isActive: antiCheatActive,
+    onViolation: handleAntiCheatViolation,
+    onWarning: handleAntiCheatWarning,
+    enableFullscreen: true,
+    enableCopyPastePrevention: true,
+    enableFocusDetection: true
+  });
 
   // Calculate current typed word and remaining text
   const getCurrentWord = () => words[currentWordIndex] || '';
@@ -274,6 +321,24 @@ export default function TypingInterface({
           </div>
         </div>
         <div className="flex items-center space-x-4">
+          {/* Anti-cheat status indicator */}
+          {room?.status === 'active' && (
+            <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1">
+                <Shield className={`h-4 w-4 ${hasFocus && isFullscreen ? 'text-green-600' : 'text-red-600'}`} />
+                <span className="text-xs text-muted-foreground">
+                  {hasFocus && isFullscreen ? 'Secure' : 'Monitoring'}
+                </span>
+              </div>
+              {!isFullscreenSupported && (
+                <div className="flex items-center space-x-1 text-yellow-600">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span className="text-xs">Fullscreen not supported</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {room.status === 'active' && (
             <div className="flex items-center space-x-2 text-sm">
               <Clock className="h-4 w-4" />
@@ -287,6 +352,14 @@ export default function TypingInterface({
       {copyFeedback && (
         <div className="mb-4 p-2 bg-green-100 dark:bg-green-900 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200 rounded-lg text-center text-sm">
           Room code copied to clipboard!
+        </div>
+      )}
+
+      {/* Anti-cheat warning */}
+      {antiCheatWarning && (
+        <div className="mb-4 p-3 bg-red-100 dark:bg-red-900 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 rounded-lg text-center text-sm flex items-center justify-center space-x-2">
+          <AlertTriangle className="h-4 w-4" />
+          <span>{antiCheatWarning}</span>
         </div>
       )}
 
@@ -519,6 +592,21 @@ export default function TypingInterface({
                       <li>• First to complete all words wins</li>
                       <li>• Type each word followed by a space</li>
                       <li>• Focus on accuracy over speed</li>
+                    </ul>
+                  </div>
+
+                  {/* Anti-cheat information */}
+                  <div className="mt-4 p-4 bg-orange-50 dark:bg-orange-950 rounded-lg">
+                    <h4 className="font-semibold text-orange-900 dark:text-orange-100 mb-2 flex items-center space-x-2">
+                      <Shield className="h-4 w-4" />
+                      <span>🛡️ Fair Play Measures</span>
+                    </h4>
+                    <ul className="text-sm text-orange-700 dark:text-orange-300 space-y-1 text-left max-w-md mx-auto">
+                      <li>• Fullscreen mode enforced during duel</li>
+                      <li>• Copy/paste operations disabled</li>
+                      <li>• Tab switching results in automatic loss</li>
+                      <li>• Focus loss detection active</li>
+                      <li>• Right-click and shortcuts disabled</li>
                     </ul>
                   </div>
                 </div>
