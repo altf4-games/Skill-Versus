@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 import { useUser, useAuth } from '@clerk/clerk-react';
+import { useUserContext } from './UserContext';
 
 const SocketContext = createContext();
 
@@ -16,11 +17,19 @@ export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const { user, isLoaded } = useUser();
+  const { user: clerkUser, isLoaded } = useUser();
   const { getToken } = useAuth();
+  const { user: syncedUser, loading: userLoading, needsProfileSetup, syncUser } = useUserContext();
 
   useEffect(() => {
-    if (!isLoaded || !user) return;
+    // Only initialize socket if:
+    // 1. Clerk is loaded and user is signed in
+    // 2. User context is not loading
+    // 3. User is synced (exists in our database)
+    // 4. User doesn't need profile setup
+    if (!isLoaded || !clerkUser || userLoading || !syncedUser || needsProfileSetup) {
+      return;
+    }
 
     const initializeSocket = async () => {
       try {
@@ -40,8 +49,8 @@ export const SocketProvider = ({ children }) => {
           setIsConnected(true);
           
           // Authenticate with Clerk user ID and token
-          newSocket.emit('authenticate', { 
-            clerkUserId: user.id,
+          newSocket.emit('authenticate', {
+            clerkUserId: clerkUser.id,
             token: token,
           });
         });
@@ -63,7 +72,7 @@ export const SocketProvider = ({ children }) => {
           if (!isAuthenticated) {
             console.warn('Authentication timeout - retrying...');
             newSocket.emit('authenticate', {
-              clerkUserId: user.id,
+              clerkUserId: clerkUser.id,
               token: token,
             });
           }
@@ -72,6 +81,12 @@ export const SocketProvider = ({ children }) => {
         newSocket.on('error', (error) => {
           console.error('Socket error:', error);
           setIsAuthenticated(false);
+
+          // If the error is USER_NOT_SYNCED, trigger a sync
+          if (error.code === 'USER_NOT_SYNCED') {
+            console.log('User not synced, triggering sync...');
+            syncUser();
+          }
         });
 
         setSocket(newSocket);
@@ -88,7 +103,7 @@ export const SocketProvider = ({ children }) => {
     };
 
     initializeSocket();
-  }, [user, isLoaded, getToken]);
+  }, [clerkUser, isLoaded, getToken, syncedUser, userLoading, needsProfileSetup]);
 
   const value = {
     socket,

@@ -157,31 +157,16 @@ class SocketManager {
 
           let user = await User.findOne({ clerkId });
 
-          // If user doesn't exist, create them
+          // If user doesn't exist, they need to sync their account first
           if (!user) {
             console.log(
-              `User not found, creating new user for Clerk ID: ${clerkId}`
+              `User not found for Clerk ID: ${clerkId}. User needs to sync account first.`
             );
-
-            // Create user with temporary email since socket auth doesn't have access to Clerk user data
-            // The real email will be updated when the user syncs via the API endpoint
-            user = new User({
-              clerkId: clerkId,
-              username: `user_${clerkId.slice(-8)}`,
-              email: `temp_${clerkId}_${Date.now()}@skillversus.temp`, // Temporary unique email that will be updated when user syncs
-              firstName: "",
-              lastName: "",
-              profileImage: "",
-              stats: {
-                totalDuels: 0,
-                wins: 0,
-                losses: 0,
-                rating: 1200,
-              },
+            socket.emit("error", {
+              message: "User not found. Please sync your account first.",
+              code: "USER_NOT_SYNCED"
             });
-
-            await user.save();
-            console.log(`Created new user: ${user.username}`);
+            return;
           }
 
           socket.userId = user._id.toString();
