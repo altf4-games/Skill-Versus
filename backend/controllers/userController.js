@@ -749,11 +749,16 @@ export const getDuelHistory = async (req, res) => {
         p.userId._id.toString() !== user._id.toString()
       );
 
+      // Determine if user is winner - check both winner.userId and participant.isWinner
+      const isWinnerByWinnerId = duel.winner.userId.toString() === user._id.toString();
+      const isWinnerByParticipant = userParticipant?.isWinner === true;
+      const isWinner = isWinnerByWinnerId || isWinnerByParticipant;
+
       return {
         _id: duel._id,
         duelType: duel.duelType,
         roomCode: duel.roomCode,
-        isWinner: duel.winner.userId.toString() === user._id.toString(),
+        isWinner: isWinner,
         opponent: {
           userId: opponent?.userId._id,
           username: opponent?.username,

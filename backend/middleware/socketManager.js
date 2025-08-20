@@ -20,18 +20,20 @@ async function saveDuelHistory(room, completionReason) {
   try {
     // Only save 1v1 duels that have a winner
     if (!room.winner || room.participants.length !== 2) {
+      console.log(`Skipping duel history save - no winner or not 1v1: ${room.roomCode}`);
       return;
     }
 
     const duration = Math.floor((room.endTime - room.startTime) / 1000); // in seconds
 
+    // Build base duel history data
     const duelHistoryData = {
       duelType: room.duelType,
       roomCode: room.roomCode,
       participants: room.participants.map(participant => ({
-        userId: participant.userId, // Already MongoDB ObjectId (as string)
+        userId: participant.userId, // MongoDB ObjectId as string
         username: participant.username,
-        isWinner: participant.userId === room.winner,
+        isWinner: participant.userId.toString() === room.winner.toString(),
         submissionResult: participant.submissionResult ? {
           passedCount: participant.submissionResult.passedCount,
           totalCount: participant.submissionResult.totalCount,
@@ -46,8 +48,8 @@ async function saveDuelHistory(room, completionReason) {
         } : undefined,
       })),
       winner: {
-        userId: room.winner, // Already MongoDB ObjectId (as string)
-        username: room.participants.find(p => p.userId === room.winner)?.username,
+        userId: room.winner, // MongoDB ObjectId as string
+        username: room.participants.find(p => p.userId.toString() === room.winner.toString())?.username,
       },
       completionReason,
       startTime: room.startTime,
@@ -55,19 +57,27 @@ async function saveDuelHistory(room, completionReason) {
       duration,
     };
 
-    // Add type-specific data
-    if (room.duelType === "coding" && room.problem) {
-      duelHistoryData.problem = {
-        id: room.problem.id,
-        title: room.problem.title,
-        difficulty: room.problem.difficulty,
-      };
-    } else if (room.duelType === "typing" && room.typingContent) {
-      duelHistoryData.typingContent = {
-        difficulty: room.typingContent.difficulty,
-        category: room.typingContent.category,
-        totalWords: room.typingContent.totalWords,
-      };
+    // Add duel-type specific data - ONLY for the correct type
+    if (room.duelType === "coding") {
+      if (room.problem) {
+        duelHistoryData.problem = {
+          id: room.problem.id || room.problem._id,
+          title: room.problem.title,
+          // Removed difficulty to avoid enum conflicts
+        };
+      }
+      // Explicitly set typingContent to undefined for coding duels
+      duelHistoryData.typingContent = undefined;
+    } else if (room.duelType === "typing") {
+      if (room.typingContent) {
+        duelHistoryData.typingContent = {
+          category: room.typingContent.category,
+          totalWords: room.typingContent.totalWords,
+          // Removed difficulty to avoid enum conflicts
+        };
+      }
+      // Explicitly set problem to undefined for typing duels
+      duelHistoryData.problem = undefined;
     }
 
     const duelHistory = new DuelHistory(duelHistoryData);
@@ -75,7 +85,14 @@ async function saveDuelHistory(room, completionReason) {
 
     console.log(`Duel history saved for room: ${room.roomCode}, winner: ${duelHistoryData.winner.username}`);
   } catch (error) {
-    console.error("Error saving duel history:", error);
+    console.error(`Error saving duel history for room ${room.roomCode}:`, error.message);
+    console.error('Room details:', {
+      duelType: room.duelType,
+      winner: room.winner,
+      participantCount: room.participants?.length,
+      hasproblem: !!room.problem,
+      hasTypingContent: !!room.typingContent
+    });
   }
 }
 

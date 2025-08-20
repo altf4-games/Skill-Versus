@@ -79,27 +79,21 @@ const duelHistorySchema = new mongoose.Schema(
       required: true,
     },
     
-    // Problem info (for coding duels)
+    // Problem info (for coding duels only)
     problem: {
       id: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Problem",
       },
       title: String,
-      difficulty: {
-        type: String,
-        enum: ["Easy", "Medium", "Hard"],
-      },
+      // Removed difficulty to avoid enum conflicts
     },
-    
-    // Typing content info (for typing duels)
+
+    // Typing content info (for typing duels only)
     typingContent: {
-      difficulty: {
-        type: String,
-        enum: ["easy", "medium", "hard"],
-      },
       category: String,
       totalWords: Number,
+      // Removed difficulty to avoid enum conflicts
     },
   },
   {

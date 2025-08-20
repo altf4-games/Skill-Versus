@@ -2,14 +2,12 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { apiClient } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { 
-  Trophy, 
-  Clock, 
-  Code, 
-  Keyboard, 
-  Target, 
+import {
+  Trophy,
+  Clock,
+  Code,
+  Keyboard,
   User,
   Zap,
   Medal,
@@ -40,15 +38,6 @@ export function RecentDuels() {
       console.error('Error fetching recent duels:', error)
     } finally {
       setLoading(false)
-    }
-  }
-
-  const getDifficultyColor = (difficulty) => {
-    switch (difficulty?.toLowerCase()) {
-      case 'easy': return 'bg-green-500/10 text-green-500 border-green-500/20'
-      case 'medium': return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
-      case 'hard': return 'bg-red-500/10 text-red-500 border-red-500/20'
-      default: return 'bg-gray-500/10 text-gray-500 border-gray-500/20'
     }
   }
 
@@ -149,13 +138,13 @@ export function RecentDuels() {
                    'Unknown'}
                 </span>
                 {duel.duelType === 'coding' && duel.problem && (
-                  <Badge variant="outline" className={`text-xs ${getDifficultyColor(duel.problem.difficulty)}`}>
-                    {duel.problem.difficulty}
+                  <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-500 border-blue-500/20">
+                    Coding
                   </Badge>
                 )}
                 {duel.duelType === 'typing' && duel.typingContent && (
-                  <Badge variant="outline" className={`text-xs ${getDifficultyColor(duel.typingContent.difficulty)}`}>
-                    {duel.typingContent.difficulty}
+                  <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-500 border-purple-500/20">
+                    Typing
                   </Badge>
                 )}
               </div>

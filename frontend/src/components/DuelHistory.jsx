@@ -6,14 +6,13 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { 
-  Trophy, 
-  Clock, 
-  Code, 
-  Keyboard, 
-  Target, 
-  TrendingUp, 
-  ChevronLeft, 
+import {
+  Trophy,
+  Clock,
+  Code,
+  Keyboard,
+  Target,
+  ChevronLeft,
   ChevronRight,
   Calendar,
   User,
@@ -55,15 +54,6 @@ export function DuelHistory() {
   const handlePageChange = (newPage) => {
     const duelType = activeTab === 'all' ? null : activeTab
     fetchDuelHistory(newPage, duelType)
-  }
-
-  const getDifficultyColor = (difficulty) => {
-    switch (difficulty?.toLowerCase()) {
-      case 'easy': return 'bg-green-500/10 text-green-500 border-green-500/20'
-      case 'medium': return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
-      case 'hard': return 'bg-red-500/10 text-red-500 border-red-500/20'
-      default: return 'bg-gray-500/10 text-gray-500 border-gray-500/20'
-    }
   }
 
   const formatDuration = (seconds) => {
@@ -158,8 +148,8 @@ export function DuelHistory() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium">{duel.problem.title}</p>
-                  <Badge variant="outline" className={getDifficultyColor(duel.problem.difficulty)}>
-                    {duel.problem.difficulty}
+                  <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">
+                    Coding
                   </Badge>
                 </div>
                 {duel.userStats.submissionResult && (
@@ -185,8 +175,8 @@ export function DuelHistory() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium">{duel.typingContent.category}</p>
-                  <Badge variant="outline" className={getDifficultyColor(duel.typingContent.difficulty)}>
-                    {duel.typingContent.difficulty}
+                  <Badge variant="outline" className="bg-purple-500/10 text-purple-500 border-purple-500/20">
+                    Typing
                   </Badge>
                 </div>
                 {duel.userStats.typingStats && (
