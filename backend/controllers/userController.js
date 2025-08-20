@@ -34,7 +34,15 @@ export const syncUser = async (req, res) => {
       await user.save();
     } else {
       // Update existing user with latest Clerk data
-      user.email = clerkUser.emailAddresses[0]?.emailAddress || user.email;
+      const clerkEmail = clerkUser.emailAddresses[0]?.emailAddress;
+
+      // Update email if we have a real email from Clerk and current email is temporary
+      if (clerkEmail && (user.email.includes('@skillversus.temp') || !user.email)) {
+        user.email = clerkEmail;
+      } else if (clerkEmail) {
+        user.email = clerkEmail;
+      }
+
       user.firstName = clerkUser.firstName || user.firstName;
       user.lastName = clerkUser.lastName || user.lastName;
       user.profileImage = clerkUser.imageUrl || user.profileImage;

@@ -163,10 +163,12 @@ class SocketManager {
               `User not found, creating new user for Clerk ID: ${clerkId}`
             );
 
+            // Create user with temporary email since socket auth doesn't have access to Clerk user data
+            // The real email will be updated when the user syncs via the API endpoint
             user = new User({
               clerkId: clerkId,
               username: `user_${clerkId.slice(-8)}`,
-              email: "",
+              email: `temp_${clerkId}_${Date.now()}@skillversus.temp`, // Temporary unique email that will be updated when user syncs
               firstName: "",
               lastName: "",
               profileImage: "",
