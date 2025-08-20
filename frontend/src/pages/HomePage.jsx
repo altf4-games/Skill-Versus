@@ -402,7 +402,7 @@ export function HomePage() {
         </section>
       </div>
 
-      <style jsx>{`
+  <style>{`
         @keyframes gradient-x {
           0%, 100% {
             background-size: 200% 200%;
