@@ -7,6 +7,16 @@ export function ProtectedRoute({ children }) {
   const { user, loading, needsProfileSetup } = useUserContext()
   const location = useLocation()
 
+  // Debug logging
+  console.log('ProtectedRoute state:', {
+    isLoaded,
+    isSignedIn,
+    loading,
+    needsProfileSetup,
+    pathname: location.pathname,
+    user: user ? { username: user.username, firstName: user.firstName, lastName: user.lastName } : null
+  })
+
   if (!isLoaded || loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -24,6 +34,7 @@ export function ProtectedRoute({ children }) {
 
   // Redirect to profile setup if needed (except if already on profile setup page)
   if (needsProfileSetup && location.pathname !== '/profile-setup') {
+    console.log('Redirecting to profile setup from:', location.pathname)
     return <Navigate to="/profile-setup" replace />
   }
 
