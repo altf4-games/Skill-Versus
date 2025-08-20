@@ -13,10 +13,10 @@ export function LeaderboardPage() {
 
   return (
     <div className="space-y-8">
-      <div className="text-center space-y-4">
+      {/* <div className="text-center space-y-4">
         <h1 className="text-3xl font-bold">Leaderboard</h1>
         <p className="text-muted-foreground">See who rules the arena</p>
-      </div>
+      </div> */}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <Button variant="outline" className="p-6 h-auto border-2 hover:bg-muted/50 hover:border-primary/50 transition-colors bg-primary/5 border-primary/20">
