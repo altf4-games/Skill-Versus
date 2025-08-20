@@ -22,15 +22,6 @@ export const syncUser = async (req, res) => {
 
     if (!user) {
       // Create new user with Clerk data
-      console.log('Creating new user with Clerk data:', {
-        clerkId: userId,
-        email: clerkUser.emailAddresses[0]?.emailAddress,
-        username: clerkUser.username,
-        firstName: clerkUser.firstName,
-        lastName: clerkUser.lastName,
-        imageUrl: clerkUser.imageUrl
-      });
-
       user = new User({
         clerkId: userId,
         email: clerkUser.emailAddresses[0]?.emailAddress,
@@ -41,11 +32,6 @@ export const syncUser = async (req, res) => {
       });
 
       await user.save();
-      console.log('Created user:', {
-        username: user.username,
-        firstName: user.firstName,
-        lastName: user.lastName
-      });
     } else {
       // Update existing user with latest Clerk data
       const clerkEmail = clerkUser.emailAddresses[0]?.emailAddress;
