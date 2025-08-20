@@ -13,6 +13,7 @@ import {
   removeFriend,
   getFriends,
   getFriendRequests,
+  getDuelHistory,
 } from "../controllers/userController.js";
 import { requireAuth } from "@clerk/express";
 
@@ -23,6 +24,7 @@ router.post("/sync", requireAuth(), syncUser);
 router.get("/me", requireAuth(), getCurrentUser);
 router.put("/profile", requireAuth(), updateProfile);
 router.put("/status", requireAuth(), updateOnlineStatus);
+router.get("/duel-history", requireAuth(), getDuelHistory);
 
 // Friends routes (protected)
 router.post("/friends/request", requireAuth(), sendFriendRequest);

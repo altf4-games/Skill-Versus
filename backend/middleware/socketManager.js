@@ -1,6 +1,7 @@
 import { Server } from "socket.io";
 import User from "../models/User.js";
 import Problem from "../models/Problem.js";
+import DuelHistory from "../models/DuelHistory.js";
 import {
   getRandomTypingText,
   calculateTypingStats,
@@ -14,10 +15,74 @@ function generateRoomCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
+// Helper function to save duel history to MongoDB
+async function saveDuelHistory(room, completionReason) {
+  try {
+    // Only save 1v1 duels that have a winner
+    if (!room.winner || room.participants.length !== 2) {
+      return;
+    }
+
+    const duration = Math.floor((room.endTime - room.startTime) / 1000); // in seconds
+
+    const duelHistoryData = {
+      duelType: room.duelType,
+      roomCode: room.roomCode,
+      participants: room.participants.map(participant => ({
+        userId: participant.userId, // Already MongoDB ObjectId (as string)
+        username: participant.username,
+        isWinner: participant.userId === room.winner,
+        submissionResult: participant.submissionResult ? {
+          passedCount: participant.submissionResult.passedCount,
+          totalCount: participant.submissionResult.totalCount,
+          submissionTime: participant.submissionTime,
+        } : undefined,
+        typingStats: participant.typingProgress ? {
+          wpm: participant.typingProgress.wpm,
+          accuracy: participant.typingProgress.accuracy,
+          finishTime: participant.typingProgress.finishTime,
+          totalTime: participant.typingProgress.finishTime ?
+            Math.floor((participant.typingProgress.finishTime - room.startTime) / 1000) : undefined,
+        } : undefined,
+      })),
+      winner: {
+        userId: room.winner, // Already MongoDB ObjectId (as string)
+        username: room.participants.find(p => p.userId === room.winner)?.username,
+      },
+      completionReason,
+      startTime: room.startTime,
+      endTime: room.endTime,
+      duration,
+    };
+
+    // Add type-specific data
+    if (room.duelType === "coding" && room.problem) {
+      duelHistoryData.problem = {
+        id: room.problem.id,
+        title: room.problem.title,
+        difficulty: room.problem.difficulty,
+      };
+    } else if (room.duelType === "typing" && room.typingContent) {
+      duelHistoryData.typingContent = {
+        difficulty: room.typingContent.difficulty,
+        category: room.typingContent.category,
+        totalWords: room.typingContent.totalWords,
+      };
+    }
+
+    const duelHistory = new DuelHistory(duelHistoryData);
+    await duelHistory.save();
+
+    console.log(`Duel history saved for room: ${room.roomCode}, winner: ${duelHistoryData.winner.username}`);
+  } catch (error) {
+    console.error("Error saving duel history:", error);
+  }
+}
+
 // Helper function to update user stats after duel completion
 async function updateUserStats(userId, isWinner) {
   try {
-    // userId here is the MongoDB ObjectId, we need to find by _id
+    // userId here is the MongoDB ObjectId (as string), we need to find by _id
     const user = await User.findById(userId);
     if (!user) {
       console.error(`User not found for stats update: ${userId}`);
@@ -402,30 +467,42 @@ class SocketManager {
                 room.status = "active";
                 room.startTime = new Date();
 
-                // Get a random problem for the duel
-                const Problem = (await import("../models/Problem.js")).default;
-                const problems = await Problem.find();
+                // Only add problems for coding duels
+                if (room.duelType === "coding") {
+                  // Get a random problem for the duel
+                  const Problem = (await import("../models/Problem.js")).default;
+                  const problems = await Problem.find();
 
-                if (problems.length === 0) {
-                  console.error("No problems found in database");
+                  if (problems.length === 0) {
+                    console.error("No problems found in database");
+                    this.io
+                      .to(roomCode)
+                      .emit("error", { message: "No problems available" });
+                    return;
+                  }
+
+                  const randomProblem =
+                    problems[Math.floor(Math.random() * problems.length)];
+                  room.problem = randomProblem;
+
+                  console.log(
+                    `Coding duel started in room: ${roomCode} with problem: ${randomProblem.title}`
+                  );
+
+                  // Notify all participants that the duel has started
                   this.io
                     .to(roomCode)
-                    .emit("error", { message: "No problems available" });
-                  return;
+                    .emit("duel-started", { room, problem: randomProblem });
+                } else if (room.duelType === "typing") {
+                  console.log(
+                    `Typing duel started in room: ${roomCode}`
+                  );
+
+                  // Notify all participants that the duel has started
+                  this.io
+                    .to(roomCode)
+                    .emit("duel-started", { room });
                 }
-
-                const randomProblem =
-                  problems[Math.floor(Math.random() * problems.length)];
-                room.problem = randomProblem;
-
-                console.log(
-                  `Duel started in room: ${roomCode} with problem: ${randomProblem.title}`
-                );
-
-                // Notify all participants that the duel has started
-                this.io
-                  .to(roomCode)
-                  .emit("duel-started", { room, problem: randomProblem });
               } catch (error) {
                 console.error("Error auto-starting duel:", error);
                 this.io
@@ -605,6 +682,9 @@ class SocketManager {
               const isWinner = participant.userId === socket.userId;
               await updateUserStats(participant.userId, isWinner);
             }
+
+            // Save duel history
+            await saveDuelHistory(room, "correct-submission");
           } else {
             // Check if all submitted without correct answers
             const allSubmissions = room.participants.filter(
@@ -652,6 +732,9 @@ class SocketManager {
                 const isWinner = participant.userId === winner.userId;
                 await updateUserStats(participant.userId, isWinner);
               }
+
+              // Save duel history
+              await saveDuelHistory(room, "best-score");
             }
           }
         } catch (error) {
@@ -962,6 +1045,9 @@ class SocketManager {
             const isWinner = participant.userId === socket.userId;
             await updateUserStats(participant.userId, isWinner);
           }
+
+          // Save duel history
+          await saveDuelHistory(room, "completion");
         } catch (error) {
           console.error("Typing completion error:", error);
           socket.emit("error", {
@@ -973,7 +1059,7 @@ class SocketManager {
       // Handle anti-cheat violations
       socket.on("anti-cheat-violation", async (data) => {
         try {
-          const { roomCode, violation, userId } = data;
+          const { roomCode, violation } = data;
 
           if (!roomCode || !violation) {
             socket.emit("error", { message: "Invalid anti-cheat data" });
@@ -1054,6 +1140,9 @@ class SocketManager {
               // Update user stats
               await updateUserStats(otherParticipant.userId, true); // Winner
               await updateUserStats(socket.userId, false); // Loser (disqualified)
+
+              // Save duel history
+              await saveDuelHistory(room, "anti-cheat");
             }
           } else {
             // For minor violations, just notify other participants

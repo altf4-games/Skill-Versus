@@ -11,6 +11,7 @@ import { useUserContext } from '@/contexts/UserContext'
 import { Link } from 'react-router-dom'
 import { User, Edit3, Save, X, Trophy, Target, Zap, Star, TrendingUp, Sword, Award, Medal, Users, UserPlus, UserMinus } from 'lucide-react'
 import { apiClient } from '@/lib/api'
+import { DuelHistory } from '@/components/DuelHistory'
 
 export function ProfilePage() {
   const { user: clerkUser } = useUser()
@@ -428,6 +429,9 @@ export function ProfilePage() {
               </div>
             </>
           )}
+
+          {/* Duel History Section */}
+          <DuelHistory />
         </div>
 
         {/* Sidebar */}

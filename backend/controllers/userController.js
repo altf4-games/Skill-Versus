@@ -1,4 +1,5 @@
 import User from "../models/User.js";
+import DuelHistory from "../models/DuelHistory.js";
 import { clerkClient, getAuth } from "@clerk/express";
 
 // Get or create user from Clerk data
@@ -691,6 +692,108 @@ export const getFriendRequests = async (req, res) => {
     res.status(500).json({
       error: "Internal server error",
       message: "Failed to get friend requests",
+    });
+  }
+};
+
+// Get user's duel history
+export const getDuelHistory = async (req, res) => {
+  try {
+    const { userId } = getAuth(req);
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: "User not authenticated",
+      });
+    }
+
+    // Find user to get their MongoDB ObjectId
+    const user = await User.findOne({ clerkId: userId });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: "User not found",
+      });
+    }
+
+    // Get pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Get duel type filter
+    const duelType = req.query.duelType;
+    const filter = { "participants.userId": user._id };
+    if (duelType && ["coding", "typing"].includes(duelType)) {
+      filter.duelType = duelType;
+    }
+
+    // Get duel history with pagination
+    const duelHistory = await DuelHistory.find(filter)
+      .populate("participants.userId", "username profileImage")
+      .populate("winner.userId", "username profileImage")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    // Get total count for pagination
+    const totalCount = await DuelHistory.countDocuments(filter);
+
+    // Transform the data to include user's perspective
+    const transformedHistory = duelHistory.map(duel => {
+      const userParticipant = duel.participants.find(p =>
+        p.userId._id.toString() === user._id.toString()
+      );
+      const opponent = duel.participants.find(p =>
+        p.userId._id.toString() !== user._id.toString()
+      );
+
+      return {
+        _id: duel._id,
+        duelType: duel.duelType,
+        roomCode: duel.roomCode,
+        isWinner: duel.winner.userId.toString() === user._id.toString(),
+        opponent: {
+          userId: opponent?.userId._id,
+          username: opponent?.username,
+          profileImage: opponent?.userId.profileImage,
+        },
+        userStats: {
+          submissionResult: userParticipant?.submissionResult,
+          typingStats: userParticipant?.typingStats,
+        },
+        opponentStats: {
+          submissionResult: opponent?.submissionResult,
+          typingStats: opponent?.typingStats,
+        },
+        completionReason: duel.completionReason,
+        duration: duel.duration,
+        problem: duel.problem,
+        typingContent: duel.typingContent,
+        createdAt: duel.createdAt,
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        duelHistory: transformedHistory,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(totalCount / limit),
+          totalCount,
+          hasNextPage: page < Math.ceil(totalCount / limit),
+          hasPrevPage: page > 1,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error getting duel history:", error);
+    res.status(500).json({
+      success: false,
+      error: "Internal server error",
+      message: "Failed to get duel history",
     });
   }
 };

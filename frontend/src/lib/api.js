@@ -80,6 +80,23 @@ class ApiClient {
     return this.request("/api/users/leaderboard");
   }
 
+  async getDuelHistory(token, page = 1, limit = 10, duelType = null) {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+
+    if (duelType) {
+      params.append('duelType', duelType);
+    }
+
+    return this.request(`/api/users/duel-history?${params.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  }
+
   // Practice endpoints
   async getPracticeLanguages() {
     return this.request("/api/practice/languages");

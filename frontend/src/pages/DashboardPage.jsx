@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Progress } from '@/components/ui/progress'
 import { Link } from 'react-router-dom'
 import { Trophy, Zap, Users, Target, Clock, Star, TrendingUp, Medal, Flame, User, Code } from 'lucide-react'
+import { RecentDuels } from '@/components/RecentDuels'
 
 export function DashboardPage() {
   const { user: clerkUser } = useUser()
@@ -177,21 +178,8 @@ export function DashboardPage() {
             </CardTitle>
             <CardDescription>Your latest battles in the arena</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="text-center py-8">
-              <Medal className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-muted-foreground mb-2">No duels yet</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Start your first duel to see your battle history here
-              </p>
-              <Button
-                onClick={handleQuickDuel}
-                className="bg-gradient-to-r from-blue-600 to-purple-700 hover:from-blue-700 hover:to-purple-800 text-white"
-              >
-                <Zap className="mr-2 h-4 w-4" />
-                Start Your First Duel
-              </Button>
-            </div>
+          <CardContent>
+            <RecentDuels />
           </CardContent>
         </Card>
 
