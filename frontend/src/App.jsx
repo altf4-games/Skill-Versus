@@ -17,6 +17,10 @@ import { LeaderboardPage } from '@/pages/LeaderboardPage'
 import { ProfilePage } from '@/pages/ProfilePage'
 import DuelRoom from '@/pages/DuelRoom'
 import { PracticePage } from '@/pages/PracticePage'
+import ContestsPage from '@/pages/ContestsPage'
+import ContestRoom from '@/pages/ContestRoom'
+import CreateContestPage from '@/pages/CreateContestPage'
+import ContestRankingsPage from '@/pages/ContestRankingsPage'
 
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || 'pk_test_Y29tcGV0ZW50LXNxdWlycmVsLTI0LmNsZXJrLmFjY291bnRzLmRldiQ'
 
@@ -85,6 +89,38 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <PracticePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/contests"
+                element={
+                  <ProtectedRoute>
+                    <ContestsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/contests/create"
+                element={
+                  <ProtectedRoute>
+                    <CreateContestPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/contests/:contestId"
+                element={
+                  <ProtectedRoute>
+                    <ContestRoom />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/contest-rankings"
+                element={
+                  <ProtectedRoute>
+                    <ContestRankingsPage />
                   </ProtectedRoute>
                 }
               />

@@ -5,6 +5,8 @@ import duelRoutes from "./duelRoutes.js";
 import problemRoutes from "./problemRoutes.js";
 import typingTextRoutes from "./typingTextRoutes.js";
 import practiceRoutes from "./practiceRoutes.js";
+import contestRoutes from "./contestRoutes.js";
+import contestRankingRoutes from "./contestRankingRoutes.js";
 
 const router = express.Router();
 
@@ -15,6 +17,8 @@ router.use("/duels", duelRoutes);
 router.use("/problems", problemRoutes);
 router.use("/typing-texts", typingTextRoutes);
 router.use("/practice", practiceRoutes);
+router.use("/contests", contestRoutes);
+router.use("/contest-rankings", contestRankingRoutes);
 
 // Health check endpoint
 router.get("/health", (_req, res) => {

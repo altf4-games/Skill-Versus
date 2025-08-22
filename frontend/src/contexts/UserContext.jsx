@@ -119,7 +119,8 @@ export function UserProvider({ children }) {
     syncUser,
     updateUser,
     setNeedsProfileSetup,
-    refreshUser
+    refreshUser,
+    getToken
   }
 
   return (

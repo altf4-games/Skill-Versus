@@ -67,6 +67,11 @@ const userSchema = new mongoose.Schema(
       maxlength: 200,
       default: "",
     },
+    // Contest admin flag
+    contestAdmin: {
+      type: Boolean,
+      default: false,
+    },
     isOnline: {
       type: Boolean,
       default: false,

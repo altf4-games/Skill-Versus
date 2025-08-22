@@ -151,6 +151,48 @@ export const submitCodeAsync = async (req, res) => {
   }
 };
 
+// Utility function to submit code to Judge0 (for internal use)
+export const submitCodeToJudge0 = async (submissionData) => {
+  const { source_code, language_id, stdin, expected_output } = submissionData;
+
+  if (!source_code || !language_id) {
+    throw new Error("Missing required fields: source_code and language_id are required");
+  }
+
+  const submission = {
+    source_code,
+    language_id,
+    stdin: stdin || "",
+    expected_output: expected_output || null,
+    cpu_time_limit: 2,
+    memory_limit: 128000,
+    wall_time_limit: 5,
+  };
+
+  const result = await makeJudge0Request(
+    "/submissions?base64_encoded=false",
+    {
+      method: "POST",
+      body: JSON.stringify(submission),
+    }
+  );
+
+  return result;
+};
+
+// Utility function to get submission result from Judge0 (for internal use)
+export const getSubmissionFromJudge0 = async (token) => {
+  if (!token) {
+    throw new Error("Submission token is required");
+  }
+
+  const result = await makeJudge0Request(
+    `/submissions/${token}?base64_encoded=false`
+  );
+
+  return result;
+};
+
 // Get multiple submissions
 export const getBatchSubmissions = async (req, res) => {
   try {
@@ -177,13 +219,69 @@ export const getBatchSubmissions = async (req, res) => {
 // Run code with sample test cases (for practice/run button)
 export const runCodeWithTests = async (req, res) => {
   try {
-    const { source_code, language_id, problem_id } = req.body;
+    const { source_code, language_id, problem_id, contest_id, is_virtual, virtual_start_time } = req.body;
 
     if (!source_code || !language_id || !problem_id) {
       return res.status(400).json({
         error:
           "Missing required fields: source_code, language_id, and problem_id are required",
       });
+    }
+
+    // If this is a contest problem, validate contest status
+    if (contest_id) {
+      const Contest = (await import('../models/Contest.js')).default;
+      const contest = await Contest.findById(contest_id);
+
+      if (contest) {
+        const now = new Date();
+        const contestStart = new Date(contest.startTime);
+        const contestEnd = new Date(contest.endTime);
+
+        // Calculate real-time status
+        let currentStatus;
+        if (now < contestStart) {
+          currentStatus = 'upcoming';
+        } else if (now <= contestEnd) {
+          currentStatus = 'active';
+        } else {
+          currentStatus = 'finished';
+        }
+
+        if (is_virtual) {
+          // For virtual contests, check virtual timing
+          if (!virtual_start_time) {
+            return res.status(400).json({ error: "Virtual start time required for virtual contest" });
+          }
+
+          const virtualStart = new Date(virtual_start_time);
+          const virtualEnd = new Date(virtualStart.getTime() + contest.duration * 60 * 1000);
+
+          if (now > virtualEnd) {
+            return res.status(400).json({
+              error: "Virtual contest has ended",
+              message: "Your virtual contest time has expired."
+            });
+          }
+        } else {
+          // For regular contests, block running code if contest is not active
+          if (currentStatus === 'upcoming') {
+            return res.status(400).json({
+              error: "Contest has not started yet",
+              contestStatus: currentStatus,
+              message: "Please wait for the contest to begin before running code."
+            });
+          }
+
+          if (currentStatus === 'finished') {
+            return res.status(400).json({
+              error: "Contest has ended",
+              contestStatus: currentStatus,
+              message: "Code running is disabled after contest ends. Start a virtual contest to practice."
+            });
+          }
+        }
+      }
     }
 
     // Get the problem to access test cases

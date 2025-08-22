@@ -65,6 +65,7 @@ export const syncUser = async (req, res) => {
         stats: user.stats,
         bio: user.bio,
         winRate: user.winRate,
+        contestAdmin: user.contestAdmin,
       },
     });
   } catch (error) {
@@ -104,6 +105,7 @@ export const getCurrentUser = async (req, res) => {
         winRate: user.winRate,
         isOnline: user.isOnline,
         lastActive: user.lastActive,
+        contestAdmin: user.contestAdmin,
       },
     });
   } catch (error) {

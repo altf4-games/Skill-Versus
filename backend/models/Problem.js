@@ -45,7 +45,21 @@ const problemSchema = new mongoose.Schema(
     testCases: [testCaseSchema],
     functionSignature: {
       type: String,
-      required: true,
+      required: false,
+    },
+    functionSignatures: {
+      javascript: { type: String, default: '' },
+      python: { type: String, default: '' },
+      java: { type: String, default: '' },
+      cpp: { type: String, default: '' },
+      c: { type: String, default: '' },
+    },
+    languageBoilerplate: {
+      javascript: { type: String, default: '' },
+      python: { type: String, default: '' },
+      java: { type: String, default: '' },
+      cpp: { type: String, default: '' },
+      c: { type: String, default: '' },
     },
     hints: [String],
     tags: [String],

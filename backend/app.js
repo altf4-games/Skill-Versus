@@ -2,13 +2,16 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { clerkMiddleware } from "@clerk/express";
-import connectDB from "./db/connection.js";
+import connectDB, { connectRedis } from "./db/connection.js";
 import routes from "./routes/index.js";
 
 const app = express();
 
 // Connect to MongoDB
 connectDB();
+
+// Connect to Redis (for contests)
+connectRedis();
 
 // Middleware
 app.use(
