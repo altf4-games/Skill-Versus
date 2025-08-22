@@ -375,17 +375,21 @@ export const processSubmissionQueue = async () => {
 // Update contest leaderboard
 const updateContestLeaderboard = async (contestId, isVirtual = false) => {
   try {
+    // Get contest details for penalty calculation
+    const contest = await Contest.findById(contestId);
+    const penaltyPerWrongSubmission = contest?.penaltyPerWrongSubmission || 20;
+
     // Generate fresh leaderboard
     const submissions = await ContestSubmission.find({
       contestId,
       isVirtual,
     }).sort({ submissionTime: 1 });
-    
+
     const userStats = {};
-    
+
     submissions.forEach(submission => {
       const userId = submission.userId.toString();
-      
+
       if (!userStats[userId]) {
         userStats[userId] = {
           userId: submission.userId,
@@ -397,28 +401,33 @@ const updateContestLeaderboard = async (contestId, isVirtual = false) => {
           problems: {},
         };
       }
-      
+
       const problemId = submission.problemId.toString();
       if (!userStats[userId].problems[problemId]) {
         userStats[userId].problems[problemId] = {
           attempts: 0,
+          wrongAttempts: 0,
           solved: false,
           points: 0,
           penalty: 0,
         };
       }
-      
+
       const problemData = userStats[userId].problems[problemId];
       problemData.attempts++;
-      
+
       if (submission.isAccepted && !problemData.solved) {
         problemData.solved = true;
         problemData.points = submission.points;
-        problemData.penalty = submission.timeFromStart;
-        
+        // CP penalty: submission time + (wrong attempts * penalty per wrong submission)
+        problemData.penalty = submission.timeFromStart + (problemData.wrongAttempts * penaltyPerWrongSubmission);
+
         userStats[userId].totalScore += submission.points;
         userStats[userId].problemsSolved++;
         userStats[userId].lastSubmissionTime = submission.submissionTime;
+      } else if (!submission.isAccepted && !problemData.solved) {
+        // Count wrong attempts only if problem is not yet solved
+        problemData.wrongAttempts++;
       }
     });
     
@@ -441,9 +450,9 @@ const updateContestLeaderboard = async (contestId, isVirtual = false) => {
       }));
     
     // Update Redis leaderboard
-    const contest = await Contest.findById(contestId);
-    if (contest) {
-      const ttl = Math.ceil((contest.endTime - new Date()) / 1000) + 3600; // Contest duration + 1 hour
+    const contestForRedis = await Contest.findById(contestId);
+    if (contestForRedis) {
+      const ttl = Math.ceil((contestForRedis.endTime - new Date()) / 1000) + 3600; // Contest duration + 1 hour
       await redisContestUtils.updateLeaderboard(contestId, leaderboard, ttl);
     }
     

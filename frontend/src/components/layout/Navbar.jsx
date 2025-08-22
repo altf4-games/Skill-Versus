@@ -47,30 +47,22 @@ export function Navbar() {
                   </div>
                 </Link>
                 <Link
-                  to="/leaderboard"
-                  className="text-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors"
-                >
-                  <div className="flex items-center space-x-1">
-                    <Trophy className="h-4 w-4" />
-                    <span>Leaderboard</span>
-                  </div>
-                </Link>
-                <Link
-                  to="/contest-rankings"
-                  className="text-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors"
-                >
-                  <div className="flex items-center space-x-1">
-                    <Trophy className="h-4 w-4" />
-                    <span>CP Rankings</span>
-                  </div>
-                </Link>
-                <Link
                   to="/contests"
                   className="text-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors"
                 >
                   <div className="flex items-center space-x-1">
                     <Calendar className="h-4 w-4" />
                     <span>Contests</span>
+                  </div>
+                </Link>
+
+                <Link
+                  to="/leaderboard"
+                  className="text-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors"
+                >
+                  <div className="flex items-center space-x-1">
+                    <Trophy className="h-4 w-4" />
+                    <span>Leaderboard</span>
                   </div>
                 </Link>
                 <Link

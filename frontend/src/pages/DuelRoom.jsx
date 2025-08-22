@@ -853,7 +853,7 @@ export default function DuelRoom() {
                     {/* Monaco Editor */}
                     <div className="border border-border rounded-lg overflow-hidden">
                       <Editor
-                        height="400px"
+                        height="500px"
                         language={LANGUAGE_OPTIONS[selectedLanguage]?.monacoId || 'python'}
                         value={code}
                         onChange={(value) => setCode(value || '')}

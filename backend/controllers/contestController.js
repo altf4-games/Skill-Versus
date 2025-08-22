@@ -281,10 +281,14 @@ export const generateLeaderboard = async (contestId, isVirtual = false) => {
   
   const userStats = {};
   
+  // Get contest details for penalty calculation
+  const contest = await Contest.findById(contestId);
+  const penaltyPerWrongSubmission = contest?.penaltyPerWrongSubmission || 20;
+
   // Process submissions to calculate scores
   submissions.forEach(submission => {
     const userId = submission.userId.toString();
-    
+
     if (!userStats[userId]) {
       userStats[userId] = {
         userId: submission.userId,
@@ -296,30 +300,35 @@ export const generateLeaderboard = async (contestId, isVirtual = false) => {
         problems: {},
       };
     }
-    
+
     const problemId = submission.problemId.toString();
     if (!userStats[userId].problems[problemId]) {
       userStats[userId].problems[problemId] = {
         attempts: 0,
+        wrongAttempts: 0,
         solved: false,
         points: 0,
         penalty: 0,
         firstAcceptedTime: null,
       };
     }
-    
+
     const problemData = userStats[userId].problems[problemId];
     problemData.attempts++;
-    
+
     if (submission.isAccepted && !problemData.solved) {
       problemData.solved = true;
       problemData.points = submission.points;
-      problemData.penalty = submission.timeFromStart;
+      // CP penalty: submission time + (wrong attempts * penalty per wrong submission)
+      problemData.penalty = submission.timeFromStart + (problemData.wrongAttempts * penaltyPerWrongSubmission);
       problemData.firstAcceptedTime = submission.submissionTime;
-      
+
       userStats[userId].totalScore += submission.points;
       userStats[userId].problemsSolved++;
       userStats[userId].lastSubmissionTime = submission.submissionTime;
+    } else if (!submission.isAccepted && !problemData.solved) {
+      // Count wrong attempts only if problem is not yet solved
+      problemData.wrongAttempts++;
     }
   });
   

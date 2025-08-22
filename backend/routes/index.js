@@ -7,6 +7,7 @@ import typingTextRoutes from "./typingTextRoutes.js";
 import practiceRoutes from "./practiceRoutes.js";
 import contestRoutes from "./contestRoutes.js";
 import contestRankingRoutes from "./contestRankingRoutes.js";
+import leaderboardRoutes from "./leaderboardRoutes.js";
 
 const router = express.Router();
 
@@ -19,6 +20,7 @@ router.use("/typing-texts", typingTextRoutes);
 router.use("/practice", practiceRoutes);
 router.use("/contests", contestRoutes);
 router.use("/contest-rankings", contestRankingRoutes);
+router.use("/leaderboard", leaderboardRoutes);
 
 // Health check endpoint
 router.get("/health", (_req, res) => {

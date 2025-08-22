@@ -218,10 +218,12 @@ contestSubmissionSchema.methods.calculatePoints = function (problemPoints) {
   return 0;
 };
 
-contestSubmissionSchema.methods.calculatePenalty = function (penaltyPerWrongSubmission) {
+contestSubmissionSchema.methods.calculatePenalty = function (penaltyPerWrongSubmission, wrongAttempts = 0) {
   if (this.isAccepted) {
-    return this.timeFromStart;
+    // For accepted submissions: submission time + (wrong attempts * penalty per wrong submission)
+    return this.timeFromStart + (wrongAttempts * penaltyPerWrongSubmission);
   }
+  // For wrong submissions, penalty is just the penalty per wrong submission
   return penaltyPerWrongSubmission;
 };
 

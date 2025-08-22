@@ -75,7 +75,10 @@ class ContestStatusUpdater {
         ]
       });
 
-      console.log(`Found ${contestsToUpdate.length} contests needing status updates`);
+      // Only log when there are contests to update
+      if (contestsToUpdate.length > 0) {
+        console.log(`Found ${contestsToUpdate.length} contests needing status updates`);
+      }
 
       for (const contest of contestsToUpdate) {
         await this.updateContestStatus(contest, now);

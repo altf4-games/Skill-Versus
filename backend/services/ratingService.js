@@ -12,6 +12,23 @@ class RatingService {
   }
 
   /**
+   * Calculate rank based on rating (Valorant-style)
+   * @param {number} rating - User's rating
+   * @returns {string} Rank title
+   */
+  calculateRank(rating) {
+    if (rating >= 2800) return "Radiant";
+    if (rating >= 2400) return "Immortal";
+    if (rating >= 2000) return "Ascendant";
+    if (rating >= 1700) return "Diamond";
+    if (rating >= 1400) return "Platinum";
+    if (rating >= 1200) return "Gold";
+    if (rating >= 1000) return "Silver";
+    if (rating >= 800) return "Bronze";
+    return "Iron";
+  }
+
+  /**
    * Calculate expected score for a user against all other participants
    * @param {number} userRating - User's current rating
    * @param {Array} allRatings - Array of all participants' ratings
@@ -48,22 +65,23 @@ class RatingService {
    */
   calculateRatingChange(currentRating, rank, allRatings) {
     const totalParticipants = allRatings.length;
-    
+
     if (totalParticipants < 2) {
-      return 0; // No rating change for contests with less than 2 participants
+      // For solo contests, give a small rating boost for participation
+      return rank === 1 ? 10 : 0;
     }
-    
+
     const expectedScore = this.calculateExpectedScore(currentRating, allRatings);
     const actualScore = this.calculateActualScore(rank, totalParticipants);
-    
+
     // Apply volatility factor for new users
     let kFactor = this.K_FACTOR;
     if (currentRating === this.INITIAL_RATING) {
       kFactor = this.K_FACTOR * 2; // Double K-factor for new users
     }
-    
+
     const ratingChange = Math.round(kFactor * (actualScore - expectedScore));
-    
+
     // Ensure minimum rating of 0
     const newRating = Math.max(0, currentRating + ratingChange);
     return newRating - currentRating;
@@ -100,14 +118,14 @@ class RatingService {
       
       // Calculate rating changes
       const ratingUpdates = [];
-      
+
       for (let i = 0; i < finalStandings.length; i++) {
         const standing = finalStandings[i];
         const userId = standing.userId.toString();
         const currentRating = ratingMap.get(userId);
         const ratingChange = this.calculateRatingChange(currentRating, standing.rank, allRatings);
         const newRating = currentRating + ratingChange;
-        
+
         ratingUpdates.push({
           userId: standing.userId,
           username: standing.username,
@@ -140,6 +158,9 @@ class RatingService {
     const bulkOps = [];
     
     for (const update of ratingUpdates) {
+      // Calculate new rank based on rating
+      const newRank = this.calculateRank(update.newRating);
+
       // Upsert contest ranking
       bulkOps.push({
         updateOne: {
@@ -148,8 +169,11 @@ class RatingService {
             $set: {
               username: update.username,
               rating: update.newRating,
-              maxRating: { $max: update.newRating },
+              rank: newRank,
               lastUpdated: new Date(),
+            },
+            $max: {
+              maxRating: update.newRating,
             },
             $inc: {
               contestsParticipated: 1,

@@ -249,7 +249,10 @@ export function ProfilePage() {
         <CardContent className="p-8">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
             <Avatar className="h-24 w-24 border-4 border-primary/20">
-              <AvatarImage src={clerkUser?.imageUrl} />
+              <AvatarImage
+                src={user.profileImage || clerkUser?.imageUrl}
+                key={user.profileImage || clerkUser?.imageUrl}
+              />
               <AvatarFallback className="bg-gradient-to-br from-primary to-purple-600 text-white text-3xl font-bold">
                 {(user.firstName?.[0] || clerkUser?.firstName?.[0] || 'U').toUpperCase()}
               </AvatarFallback>

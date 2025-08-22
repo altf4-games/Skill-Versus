@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Progress } from '@/components/ui/progress'
 import { Link } from 'react-router-dom'
-import { Trophy, Zap, Users, Target, Clock, Star, TrendingUp, Medal, Flame, User, Code } from 'lucide-react'
+import { Trophy, Zap, Users, Target, Clock, Star, TrendingUp, Medal, Flame, User, Code, Calendar } from 'lucide-react'
 import { RecentDuels } from '@/components/RecentDuels'
 
 export function DashboardPage() {
@@ -78,9 +78,9 @@ export function DashboardPage() {
     navigate('/duels')
   }
 
-  const handleChallengeFriend = () => {
-    // For now, navigate to duels page where they can create a room
-    navigate('/duels')
+  const handleCPContest = () => {
+    // Navigate to contests page
+    navigate('/contests')
   }
 
   const handlePracticeMode = () => {
@@ -95,7 +95,10 @@ export function DashboardPage() {
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 p-6 bg-gradient-to-r from-primary/5 via-purple-500/5 to-pink-500/5 rounded-xl border">
         <div className="flex items-center space-x-4">
           <Avatar className="h-16 w-16 border-2 border-primary/20">
-            <AvatarImage src={clerkUser?.imageUrl} />
+            <AvatarImage
+              src={user?.profileImage || clerkUser?.imageUrl}
+              key={user?.profileImage || clerkUser?.imageUrl}
+            />
             <AvatarFallback className="bg-gradient-to-br from-primary to-purple-600 text-white text-xl font-bold">
               {(user?.firstName?.[0] || clerkUser?.firstName?.[0] || 'D').toUpperCase()}
             </AvatarFallback>
@@ -123,11 +126,11 @@ export function DashboardPage() {
           <Button
             variant="outline"
             size="lg"
-            onClick={handleChallengeFriend}
+            onClick={handleCPContest}
             className="border-2 hover:bg-muted/50"
           >
-            <Users className="mr-2 h-5 w-5" />
-            Challenge Friend
+            <Calendar className="mr-2 h-5 w-5" />
+            CP Contest
           </Button>
         </div>
       </div>
@@ -202,12 +205,12 @@ export function DashboardPage() {
                 <span className="truncate">Quick Duel</span>
               </Button>
               <Button
-                onClick={handleChallengeFriend}
+                onClick={handleCPContest}
                 className="w-full justify-start border-2 hover:bg-muted/50 h-10 px-3"
                 variant="outline"
               >
-                <Users className="mr-2 h-4 w-4 flex-shrink-0" />
-                <span className="truncate">Challenge Friend</span>
+                <Calendar className="mr-2 h-4 w-4 flex-shrink-0" />
+                <span className="truncate">CP Contest</span>
               </Button>
               <Button asChild variant="outline" className="w-full justify-start h-10 px-3">
                 <Link

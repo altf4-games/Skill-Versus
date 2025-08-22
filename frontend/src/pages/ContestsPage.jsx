@@ -1,11 +1,17 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useUserContext } from '../contexts/UserContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { SEO } from '../components/SEO';
 import { API_ENDPOINTS } from '../config/api';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Trophy, Calendar, Clock, Users, Plus, Filter } from 'lucide-react';
 
 const ContestsPage = () => {
   const { user } = useUserContext();
+  const { theme } = useTheme();
   const [contests, setContests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -47,16 +53,18 @@ const ContestsPage = () => {
   };
 
   const getStatusBadge = (status) => {
-    const badges = {
-      upcoming: 'bg-blue-100 text-blue-800',
-      active: 'bg-green-100 text-green-800',
-      finished: 'bg-gray-100 text-gray-800',
+    const statusConfig = {
+      upcoming: { variant: 'secondary', className: '' },
+      active: { variant: 'default', className: 'bg-green-600 hover:bg-green-700 text-white' },
+      finished: { variant: 'outline', className: '' },
     };
-    
+
+    const config = statusConfig[status] || statusConfig.finished;
+
     return (
-      <span className={`px-2 py-1 text-xs font-medium rounded-full ${badges[status]}`}>
+      <Badge variant={config.variant} className={config.className}>
         {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
+      </Badge>
     );
   };
 
@@ -72,11 +80,11 @@ const ContestsPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen bg-background">
         <SEO title="Contests" description="Competitive Programming Contests" />
         <div className="container mx-auto px-4 py-8">
           <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           </div>
         </div>
       </div>
@@ -84,121 +92,180 @@ const ContestsPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-background text-foreground">
       <SEO title="Contests" description="Competitive Programming Contests" />
-      
+
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              Contests
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              Compete in programming contests and improve your skills
-            </p>
+          <div className="space-y-2">
+            <div className="flex items-center space-x-3">
+              <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-primary to-primary/80 rounded-full">
+                <Trophy className="h-6 w-6 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-foreground">
+                  Contests
+                </h1>
+                <p className="text-muted-foreground">
+                  Compete in programming contests and improve your skills
+                </p>
+              </div>
+            </div>
           </div>
-          
+
           {user?.contestAdmin && (
-            <Link
-              to="/contests/create"
-              className="mt-4 sm:mt-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-            >
-              Create Contest
-            </Link>
+            <Button asChild className="mt-4 sm:mt-0">
+              <Link to="/contests/create">
+                <Plus className="h-4 w-4 mr-2" />
+                Create Contest
+              </Link>
+            </Button>
           )}
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap gap-2 mb-6">
-          {['all', 'upcoming', 'active', 'finished'].map((status) => (
-            <button
-              key={status}
-              onClick={() => {
-                setFilter(status);
-                setPage(1);
-              }}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                filter === status
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-              }`}
-            >
-              {status.charAt(0).toUpperCase() + status.slice(1)}
-            </button>
-          ))}
-        </div>
+        <Card
+          className="mb-6"
+          style={{
+            backgroundColor: theme === 'dark' ? 'hsl(222.2 84% 4.9%)' : 'hsl(0 0% 100%)',
+            borderColor: theme === 'dark' ? 'hsl(217.2 32.6% 17.5%)' : 'hsl(214.3 31.8% 91.4%)',
+            color: theme === 'dark' ? 'hsl(210 40% 98%)' : 'hsl(222.2 84% 4.9%)'
+          }}
+        >
+          <CardHeader className="pb-3">
+            <div className="flex items-center space-x-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-lg">Filter Contests</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {['all', 'upcoming', 'active', 'finished'].map((status) => (
+                <Button
+                  key={status}
+                  variant={filter === status ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setFilter(status);
+                    setPage(1);
+                  }}
+                  className="transition-colors"
+                >
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg mb-6">
-            {error}
-          </div>
+          <Card
+            className="mb-6"
+            style={{
+              backgroundColor: theme === 'dark' ? 'hsl(222.2 84% 4.9%)' : 'hsl(0 0% 100%)',
+              borderColor: theme === 'dark' ? 'hsl(0 62.8% 30.6%)' : 'hsl(0 84.2% 60.2%)',
+              color: theme === 'dark' ? 'hsl(210 40% 98%)' : 'hsl(222.2 84% 4.9%)'
+            }}
+          >
+            <CardContent className="pt-6">
+              <div className="text-destructive">
+                {error}
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Contests List */}
         <div className="space-y-4">
           {contests.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-gray-400 dark:text-gray-600 text-lg">
-                No contests found
-              </div>
-              <p className="text-gray-500 dark:text-gray-400 mt-2">
-                {filter === 'all' 
-                  ? 'No contests have been created yet.'
-                  : `No ${filter} contests found.`
-                }
-              </p>
-            </div>
+            <Card
+              style={{
+                backgroundColor: theme === 'dark' ? 'hsl(222.2 84% 4.9%)' : 'hsl(0 0% 100%)',
+                borderColor: theme === 'dark' ? 'hsl(217.2 32.6% 17.5%)' : 'hsl(214.3 31.8% 91.4%)',
+                color: theme === 'dark' ? 'hsl(210 40% 98%)' : 'hsl(222.2 84% 4.9%)'
+              }}
+            >
+              <CardContent className="text-center py-12">
+                <Trophy className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <div className="text-muted-foreground text-lg">
+                  No contests found
+                </div>
+                <p className="text-muted-foreground mt-2">
+                  {filter === 'all'
+                    ? 'No contests have been created yet.'
+                    : `No ${filter} contests found.`
+                  }
+                </p>
+              </CardContent>
+            </Card>
           ) : (
             contests.map((contest) => (
-              <div
+              <Card
                 key={contest._id}
-                className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition-shadow"
+                className="hover:shadow-md transition-shadow"
+                style={{
+                  backgroundColor: theme === 'dark' ? 'hsl(222.2 84% 4.9%)' : 'hsl(0 0% 100%)',
+                  borderColor: theme === 'dark' ? 'hsl(217.2 32.6% 17.5%)' : 'hsl(214.3 31.8% 91.4%)',
+                  color: theme === 'dark' ? 'hsl(210 40% 98%)' : 'hsl(222.2 84% 4.9%)'
+                }}
               >
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                        {contest.title}
-                      </h3>
-                      {getStatusBadge(contest.status)}
+                <CardHeader>
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <CardTitle className="text-xl">
+                          {contest.title}
+                        </CardTitle>
+                        {getStatusBadge(contest.status)}
+                      </div>
+
+                      <CardDescription className="mb-4">
+                        {contest.description}
+                      </CardDescription>
                     </div>
-                    
-                    <p className="text-gray-600 dark:text-gray-400 mb-4">
-                      {contest.description}
-                    </p>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm text-gray-500 dark:text-gray-400">
+
+                    <div className="mt-4 sm:mt-0 sm:ml-6">
+                      <Button asChild>
+                        <Link to={`/contests/${contest._id}`}>
+                          View Contest
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm text-muted-foreground">
+                    <div className="flex items-center space-x-2">
+                      <Calendar className="h-4 w-4" />
                       <div>
                         <span className="font-medium">Start:</span>{' '}
                         {formatDate(contest.startTime)}
                       </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Clock className="h-4 w-4" />
                       <div>
                         <span className="font-medium">Duration:</span>{' '}
                         {formatDuration(contest.duration)}
                       </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Users className="h-4 w-4" />
                       <div>
                         <span className="font-medium">Participants:</span>{' '}
                         {contest.totalParticipants || 0}
                       </div>
                     </div>
-                    
-                    <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                      <span className="font-medium">Created by:</span> {contest.createdByUsername}
-                    </div>
                   </div>
-                  
-                  <div className="mt-4 sm:mt-0 sm:ml-6">
-                    <Link
-                      to={`/contests/${contest._id}`}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-                    >
-                      View Contest
-                    </Link>
+
+                  <div className="mt-4 text-sm text-muted-foreground">
+                    <span className="font-medium">Created by:</span> {contest.createdByUsername}
                   </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             ))
           )}
         </div>
@@ -206,25 +273,25 @@ const ContestsPage = () => {
         {/* Pagination */}
         {pagination.pages > 1 && (
           <div className="flex justify-center items-center gap-2 mt-8">
-            <button
+            <Button
+              variant="outline"
               onClick={() => setPage(page - 1)}
               disabled={page === 1}
-              className="px-3 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
             >
               Previous
-            </button>
-            
-            <span className="px-4 py-2 text-gray-700 dark:text-gray-300">
+            </Button>
+
+            <span className="px-4 py-2 text-muted-foreground">
               Page {page} of {pagination.pages}
             </span>
-            
-            <button
+
+            <Button
+              variant="outline"
               onClick={() => setPage(page + 1)}
               disabled={page === pagination.pages}
-              className="px-3 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
             >
               Next
-            </button>
+            </Button>
           </div>
         )}
       </div>

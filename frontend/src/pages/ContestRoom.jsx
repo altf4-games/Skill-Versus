@@ -1,17 +1,27 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useUserContext } from '../contexts/UserContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { useAntiCheat } from '../hooks/useAntiCheat';
 import { useContestRealtime } from '../hooks/useContestRealtime';
-import CodeEditor from '../components/CodeEditor';
+import { Editor } from '@monaco-editor/react';
 import { SEO } from '../components/SEO';
 import { API_ENDPOINTS } from '../config/api';
 import { apiClient } from '../lib/api';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Trophy, Clock, Users, Code, Play, Send, Eye, EyeOff, CheckCircle } from 'lucide-react';
 
 const ContestRoom = () => {
   const { contestId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, getToken } = useUserContext();
+  const { theme } = useTheme();
   
   // Contest state
   const [contest, setContest] = useState(null);
@@ -37,7 +47,7 @@ const ContestRoom = () => {
   const [serverTimeOffset, setServerTimeOffset] = useState(0); // Offset between server and local time
   
   // Virtual contest
-  const [isVirtual, setIsVirtual] = useState(false);
+  const [isVirtual, setIsVirtual] = useState(searchParams.get('virtual') === 'true');
   const [virtualStartTime, setVirtualStartTime] = useState(null);
   
   // UI state
@@ -102,6 +112,13 @@ const ContestRoom = () => {
   useEffect(() => {
     fetchContestDetails();
   }, [contestId]);
+
+  // Handle virtual contest initialization
+  useEffect(() => {
+    if (searchParams.get('virtual') === 'true' && contest && !isVirtual) {
+      handleStartVirtual();
+    }
+  }, [contest, searchParams]);
 
   useEffect(() => {
     if (contest && isRegistered) {
@@ -409,32 +426,40 @@ const ContestRoom = () => {
     return languageMap[lang] || 63;
   };
 
+  const getMonacoLanguage = (lang) => {
+    const monacoLanguageMap = {
+      javascript: 'javascript',
+      python: 'python',
+      java: 'java',
+      cpp: 'cpp',
+      c: 'c',
+    };
+    return monacoLanguageMap[lang] || 'javascript';
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   if (!contest) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Contest Not Found</h2>
-          <button
-            onClick={() => navigate('/contests')}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
-          >
+          <h2 className="text-2xl font-bold text-foreground mb-4">Contest Not Found</h2>
+          <Button onClick={() => navigate('/contests')}>
             Back to Contests
-          </button>
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-background">
       <SEO title={`${contest.title} - Contest`} description={contest.description} />
       
       {/* Anti-cheat warning */}
@@ -445,23 +470,23 @@ const ContestRoom = () => {
       )}
 
       {/* Contest Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <div className="bg-card border-b border-border">
         <div className="container mx-auto px-4 py-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <h1 className="text-2xl font-bold text-foreground">
                 {contest.title}
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-1">
+              <p className="text-muted-foreground mt-1">
                 {contest.description}
               </p>
             </div>
             
             <div className="mt-4 sm:mt-0 text-right">
-              <div className="text-lg font-mono text-gray-900 dark:text-white">
+              <div className="text-lg font-mono text-foreground">
                 {timeRemaining ? formatTime(timeRemaining) : '00:00:00'}
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
+              <div className="text-sm text-muted-foreground">
                 {contestStatus === 'upcoming' && 'Starts in'}
                 {contestStatus === 'active' && 'Time remaining'}
                 {contestStatus === 'finished' && 'Contest ended'}
@@ -475,13 +500,13 @@ const ContestRoom = () => {
       <div className="container mx-auto px-4 py-6">
         {/* Registration/Virtual Contest */}
         {!isRegistered && !isVirtual && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+          <div className="bg-card rounded-lg shadow-sm border border-border p-6 mb-6">
             {canRegister && contestStatus === 'upcoming' && (
               <div className="text-center">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                <h3 className="text-lg font-semibold text-foreground mb-2">
                   Register for Contest
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                <p className="text-muted-foreground mb-4">
                   You need to register before the contest starts to participate.
                 </p>
                 <button
@@ -495,10 +520,10 @@ const ContestRoom = () => {
 
             {!canRegister && contestStatus === 'upcoming' && (
               <div className="text-center">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                <h3 className="text-lg font-semibold text-foreground mb-2">
                   Registration Closed
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                <p className="text-muted-foreground mb-4">
                   Registration for this contest is no longer available.
                 </p>
               </div>
@@ -506,13 +531,13 @@ const ContestRoom = () => {
 
             {contestStatus === 'active' && (
               <div className="text-center">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                <h3 className="text-lg font-semibold text-foreground mb-2">
                   Contest is Active
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                <p className="text-muted-foreground mb-4">
                   This contest is currently running. You can view the leaderboard but cannot participate since you didn't register.
                 </p>
-                <div className="text-sm text-gray-500 dark:text-gray-400">
+                <div className="text-sm text-muted-foreground">
                   Registration was required before the contest started.
                 </div>
               </div>
@@ -520,18 +545,18 @@ const ContestRoom = () => {
 
             {contestStatus === 'finished' && contest.allowVirtualParticipation && (
               <div className="text-center">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                <h3 className="text-lg font-semibold text-foreground mb-2">
                   Virtual Contest
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                <p className="text-muted-foreground mb-4">
                   This contest has ended, but you can participate virtually.
                 </p>
-                <button
+                <Button
                   onClick={handleStartVirtual}
-                  className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium"
+                  className="bg-green-600 hover:bg-green-700"
                 >
                   Start Virtual Contest
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -549,7 +574,7 @@ const ContestRoom = () => {
           <div>
             {/* Contest Tabs */}
             <div className="mb-6">
-              <div className="border-b border-gray-200 dark:border-gray-700">
+              <div className="border-b border-border">
                 <nav className="-mb-px flex space-x-8">
                   {(isRegistered || isVirtual) && (
                     <button
@@ -557,7 +582,7 @@ const ContestRoom = () => {
                       className={`py-2 px-1 border-b-2 font-medium text-sm ${
                         activeTab === 'problem'
                           ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                          : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                          : 'border-transparent text-muted-foreground hover:text-foreground'
                       }`}
                     >
                       Problems
@@ -568,7 +593,7 @@ const ContestRoom = () => {
                     className={`py-2 px-1 border-b-2 font-medium text-sm ${
                       activeTab === 'leaderboard'
                         ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                        : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                        : 'border-transparent text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     Leaderboard
@@ -582,7 +607,7 @@ const ContestRoom = () => {
                       className={`py-2 px-1 border-b-2 font-medium text-sm ${
                         activeTab === 'submissions'
                           ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                          : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                          : 'border-transparent text-muted-foreground hover:text-foreground'
                       }`}
                     >
                       My Submissions ({submissions.length})
@@ -599,28 +624,23 @@ const ContestRoom = () => {
                   <div>
                     {/* Contest Finished Message */}
                     {contestStatus === 'finished' && (
-                      <div className="mb-6 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+                      <div className="mb-6 bg-card border border-border rounded-lg p-6">
                         <div className="text-center">
                           <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
+                            <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
                           </div>
-                          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                          <h3 className="text-xl font-semibold text-foreground mb-2">
                             Contest Completed
                           </h3>
-                          <p className="text-gray-600 dark:text-gray-400 mb-4">
+                          <p className="text-muted-foreground mb-4">
                             This contest has ended. View the final results below or start a virtual contest to practice.
                           </p>
                           {contest?.allowVirtualParticipation && !isVirtual && (
-                            <button
-                              onClick={() => {
-                                window.location.href = `/contests/${contestId}?virtual=true`;
-                              }}
-                              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                            <Button
+                              onClick={handleStartVirtual}
                             >
                               Start Virtual Contest
-                            </button>
+                            </Button>
                           )}
                         </div>
                       </div>
@@ -628,9 +648,9 @@ const ContestRoom = () => {
 
                     <div className={`grid grid-cols-1 gap-6 ${contestStatus === 'finished' ? 'lg:grid-cols-1' : 'lg:grid-cols-2'}`}>
             {/* Left Panel - Problem */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="bg-card rounded-lg shadow-sm border border-border">
               {/* Problem Tabs */}
-              <div className="border-b border-gray-200 dark:border-gray-700">
+              <div className="border-b border-border">
                 <div className="flex overflow-x-auto">
                   {problems.map((problem, index) => (
                     <button
@@ -639,7 +659,7 @@ const ContestRoom = () => {
                       className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 ${
                         currentProblem === index
                           ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                          : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                          : 'border-transparent text-muted-foreground hover:text-foreground'
                       }`}
                     >
                       {String.fromCharCode(65 + index)}. {problem.title}
@@ -652,7 +672,7 @@ const ContestRoom = () => {
               <div className="p-6 max-h-96 overflow-y-auto">
                 {problems[currentProblem] && (
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    <h3 className="text-lg font-semibold text-foreground mb-4">
                       {problems[currentProblem].title}
                     </h3>
                     
@@ -664,9 +684,9 @@ const ContestRoom = () => {
 
                     {problems[currentProblem].examples && (
                       <div className="mt-6">
-                        <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Examples:</h4>
+                        <h4 className="font-semibold text-foreground mb-2">Examples:</h4>
                         {problems[currentProblem].examples.map((example, idx) => (
-                          <div key={idx} className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg mb-3">
+                          <div key={idx} className="bg-muted p-3 rounded-lg mb-3">
                             <div className="text-sm">
                               <div><strong>Input:</strong> {example.input}</div>
                               <div><strong>Output:</strong> {example.output}</div>
@@ -681,8 +701,8 @@ const ContestRoom = () => {
 
                     {problems[currentProblem].constraints && (
                       <div className="mt-4">
-                        <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Constraints:</h4>
-                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                        <h4 className="font-semibold text-foreground mb-2">Constraints:</h4>
+                        <div className="text-sm text-muted-foreground">
                           {problems[currentProblem].constraints}
                         </div>
                       </div>
@@ -706,14 +726,14 @@ const ContestRoom = () => {
 
             {/* Right Panel - Code Editor (Hidden when contest finished) */}
             {contestStatus !== 'finished' && (
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+              <div className="bg-card rounded-lg shadow-sm border border-border">
               {/* Editor Header */}
-              <div className="border-b border-gray-200 dark:border-gray-700 p-4">
+              <div className="border-b border-border p-4">
                 <div className="flex justify-between items-center">
                   <select
                     value={language}
                     onChange={(e) => setLanguage(e.target.value)}
-                    className="bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm rounded-lg px-3 py-2"
+                    className="bg-background border border-border text-foreground text-sm rounded-lg px-3 py-2"
                   >
                     <option value="javascript">JavaScript</option>
                     <option value="python">Python</option>
@@ -742,50 +762,57 @@ const ContestRoom = () => {
               </div>
 
               {/* Code Editor */}
-              <div className="h-96">
-                <CodeEditor
-                  value={code}
-                  onChange={setCode}
-                  language={language}
+              <div className="h-96 border border-border rounded-lg overflow-hidden">
+                <Editor
                   height="100%"
+                  language={getMonacoLanguage(language)}
+                  value={code}
+                  onChange={(value) => setCode(value || '')}
+                  theme={theme === 'dark' ? 'vs-dark' : 'light'}
                   options={{
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    fontSize: 14,
+                    lineNumbers: 'on',
+                    wordWrap: 'on',
+                    automaticLayout: true,
                     readOnly: submitting,
                   }}
                 />
               </div>
 
               {/* Custom Input */}
-              <div className="border-t border-gray-200 dark:border-gray-700 p-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <div className="border-t border-border p-4">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Custom Input (Optional)
                 </label>
                 <textarea
                   value={customInput}
                   onChange={(e) => setCustomInput(e.target.value)}
                   placeholder="Enter custom input for testing..."
-                  className="w-full h-20 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm resize-none"
+                  className="w-full h-20 px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm resize-none"
                 />
               </div>
 
               {/* Output Display */}
               {showOutput && runOutput && (
-                <div className="border-t border-gray-200 dark:border-gray-700 p-4">
+                <div className="border-t border-border p-4">
                   <div className="flex justify-between items-center mb-2">
-                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <h4 className="text-sm font-medium text-foreground">
                       Test Results ({runOutput.passedCount}/{runOutput.totalCount} passed)
                     </h4>
                     <button
                       onClick={() => setShowOutput(false)}
-                      className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      className="text-muted-foreground hover:text-foreground"
                     >
                       ✕
                     </button>
                   </div>
-                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 max-h-60 overflow-y-auto">
+                  <div className="bg-muted rounded-lg p-3 max-h-60 overflow-y-auto">
                     {runOutput.testResults?.map((result, index) => (
-                      <div key={index} className="mb-4 last:mb-0 border-b border-gray-200 dark:border-gray-600 last:border-b-0 pb-3 last:pb-0">
+                      <div key={index} className="mb-4 last:mb-0 border-b border-border last:border-b-0 pb-3 last:pb-0">
                         <div className="flex items-center justify-between mb-2">
-                          <div className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                          <div className="text-xs font-medium text-muted-foreground">
                             Test Case {index + 1}
                           </div>
                           <div className={`text-xs px-2 py-1 rounded-full font-medium ${
@@ -799,13 +826,13 @@ const ContestRoom = () => {
 
                         <div className="space-y-2 text-xs">
                           <div>
-                            <span className="font-medium text-gray-600 dark:text-gray-400">Input:</span>
-                            <pre className="mt-1 text-gray-900 dark:text-white bg-white dark:bg-gray-700 p-2 rounded border font-mono">{result.input}</pre>
+                            <span className="font-medium text-muted-foreground">Input:</span>
+                            <pre className="mt-1 text-foreground bg-background p-2 rounded border border-border font-mono">{result.input}</pre>
                           </div>
 
                           <div>
-                            <span className="font-medium text-gray-600 dark:text-gray-400">Expected:</span>
-                            <pre className="mt-1 text-gray-900 dark:text-white bg-white dark:bg-gray-700 p-2 rounded border font-mono">{result.expectedOutput}</pre>
+                            <span className="font-medium text-muted-foreground">Expected:</span>
+                            <pre className="mt-1 text-foreground bg-background p-2 rounded border border-border font-mono">{result.expectedOutput}</pre>
                           </div>
 
                           <div>
@@ -836,11 +863,11 @@ const ContestRoom = () => {
           </div>
           </div>
                 ) : (
-                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  <div className="bg-card rounded-lg shadow-sm border border-border p-8 text-center">
+                    <h3 className="text-lg font-semibold text-foreground mb-4">
                       Problems Not Available
                     </h3>
-                    <p className="text-gray-600 dark:text-gray-400">
+                    <p className="text-muted-foreground">
                       {contestStatus === 'upcoming' && isRegistered
                         ? 'You are registered! Problems will be available when the contest starts.'
                         : contestStatus === 'upcoming'
@@ -870,23 +897,24 @@ const ContestRoom = () => {
 
             {/* Leaderboard Tab */}
             {activeTab === 'leaderboard' && (
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="bg-card rounded-lg shadow-sm border border-border">
+                <div className="p-4 border-b border-border">
                   <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    <h3 className="text-lg font-semibold text-foreground">
                       {contestStatus === 'finished' ? 'Final Results' : 'Leaderboard'}
                     </h3>
                     {contestStatus !== 'finished' && (
-                      <button
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={refreshLeaderboard}
-                        className="text-blue-600 hover:text-blue-700 text-sm font-medium"
                       >
                         Refresh
-                      </button>
+                      </Button>
                     )}
                   </div>
                   {getUserRank() && (
-                    <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                    <div className="mt-2 text-sm text-muted-foreground">
                       Your rank: #{getUserRank()} | Score: {getUserScore()?.totalScore || 0}
                     </div>
                   )}
@@ -903,15 +931,12 @@ const ContestRoom = () => {
                       </p>
                       {contest?.allowVirtualParticipation && !isVirtual && (
                         <div className="mt-3">
-                          <button
-                            onClick={() => {
-                              // Start virtual contest
-                              window.location.href = `/contests/${contestId}?virtual=true`;
-                            }}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                          <Button
+                            size="sm"
+                            onClick={handleStartVirtual}
                           >
                             Start Virtual Contest
-                          </button>
+                          </Button>
                           <p className="text-xs text-green-600 dark:text-green-400 mt-1">
                             Practice with the same problems and time limit
                           </p>
@@ -922,11 +947,11 @@ const ContestRoom = () => {
                 </div>
                 <div className="max-h-96 overflow-y-auto">
                   {leaderboard.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                    <div className="p-8 text-center text-muted-foreground">
                       No submissions yet
                     </div>
                   ) : (
-                    <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                    <div className="divide-y divide-border">
                       {leaderboard.map((entry, index) => (
                         <div
                           key={entry.userId}
@@ -938,18 +963,18 @@ const ContestRoom = () => {
                         >
                           <div className="flex justify-between items-center">
                             <div className="flex items-center space-x-3">
-                              <span className="font-mono text-sm text-gray-500 dark:text-gray-400 w-8">
+                              <span className="font-mono text-sm text-muted-foreground w-8">
                                 #{entry.rank}
                               </span>
-                              <span className="font-medium text-gray-900 dark:text-white">
+                              <span className="font-medium text-foreground">
                                 {entry.username}
                               </span>
                             </div>
                             <div className="text-right">
-                              <div className="font-mono text-sm text-gray-900 dark:text-white">
+                              <div className="font-mono text-sm text-foreground">
                                 {entry.totalScore} pts
                               </div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                              <div className="text-xs text-muted-foreground">
                                 {entry.problemsSolved} solved | {entry.totalPenalty} penalty
                               </div>
                             </div>
@@ -964,23 +989,24 @@ const ContestRoom = () => {
 
             {/* Submissions Tab */}
             {activeTab === 'submissions' && (
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="bg-card rounded-lg shadow-sm border border-border">
+                <div className="p-4 border-b border-border">
                   <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    <h3 className="text-lg font-semibold text-foreground">
                       My Submissions
                     </h3>
-                    <button
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={refreshSubmissions}
-                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
                     >
                       Refresh
-                    </button>
+                    </Button>
                   </div>
                   {(() => {
                     const stats = getSubmissionStats();
                     return (
-                      <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                      <div className="mt-2 text-sm text-muted-foreground">
                         {stats.total} submissions | {stats.accepted} accepted | {stats.acceptanceRate}% success rate
                       </div>
                     );
@@ -988,19 +1014,19 @@ const ContestRoom = () => {
                 </div>
                 <div className="max-h-96 overflow-y-auto">
                   {submissions.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                    <div className="p-8 text-center text-muted-foreground">
                       No submissions yet
                     </div>
                   ) : (
-                    <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                    <div className="divide-y divide-border">
                       {submissions.map((submission) => (
                         <div key={submission._id} className="p-4">
                           <div className="flex justify-between items-start">
                             <div>
-                              <div className="font-medium text-gray-900 dark:text-white">
+                              <div className="font-medium text-foreground">
                                 {submission.problemId?.title || 'Problem'}
                               </div>
-                              <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                              <div className="text-sm text-muted-foreground mt-1">
                                 {new Date(submission.submissionTime).toLocaleString()}
                               </div>
                             </div>
@@ -1015,14 +1041,14 @@ const ContestRoom = () => {
                                 {submission.verdict || submission.status.toUpperCase()}
                               </div>
                               {submission.isAccepted && (
-                                <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                <div className="text-sm text-muted-foreground mt-1">
                                   {submission.points} pts
                                 </div>
                               )}
                             </div>
                           </div>
                           {submission.passedTestCases !== undefined && (
-                            <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                            <div className="mt-2 text-sm text-muted-foreground">
                               Test cases: {submission.passedTestCases}/{submission.totalTestCases}
                             </div>
                           )}
