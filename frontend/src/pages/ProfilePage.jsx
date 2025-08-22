@@ -239,10 +239,10 @@ export function ProfilePage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="text-center space-y-4">
+      {/* <div className="text-center space-y-4">
         <h1 className="text-4xl font-bold">Profile</h1>
         <p className="text-muted-foreground text-lg">Manage your account and view your progress</p>
-      </div>
+      </div> */}
 
       {/* Profile Header Section */}
       <Card className="bg-gradient-to-r from-primary/5 via-purple-500/5 to-pink-500/5 border-primary/20">
