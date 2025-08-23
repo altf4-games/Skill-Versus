@@ -17,14 +17,14 @@ class RatingService {
    * @returns {string} Rank title
    */
   calculateRank(rating) {
-    if (rating >= 2800) return "Radiant";
+    if (rating >= 2600) return "Radiant";
     if (rating >= 2400) return "Immortal";
-    if (rating >= 2000) return "Ascendant";
-    if (rating >= 1700) return "Diamond";
-    if (rating >= 1400) return "Platinum";
-    if (rating >= 1200) return "Gold";
-    if (rating >= 1000) return "Silver";
-    if (rating >= 800) return "Bronze";
+    if (rating >= 2300) return "Ascendant";
+    if (rating >= 2100) return "Diamond";
+    if (rating >= 1900) return "Platinum";
+    if (rating >= 1600) return "Gold";
+    if (rating >= 1400) return "Silver";
+    if (rating >= 1200) return "Bronze";
     return "Iron";
   }
 

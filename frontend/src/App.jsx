@@ -20,6 +20,7 @@ import { PracticePage } from '@/pages/PracticePage'
 import ContestsPage from '@/pages/ContestsPage'
 import ContestRoom from '@/pages/ContestRoom'
 import CreateContestPage from '@/pages/CreateContestPage'
+import CreateProblemPage from '@/pages/CreateProblemPage'
 
 
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || 'pk_test_Y29tcGV0ZW50LXNxdWlycmVsLTI0LmNsZXJrLmFjY291bnRzLmRldiQ'
@@ -105,6 +106,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <CreateContestPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/problems/create"
+                element={
+                  <ProtectedRoute>
+                    <CreateProblemPage />
                   </ProtectedRoute>
                 }
               />

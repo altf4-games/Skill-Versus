@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Trophy, Clock, Users, Code, Play, Send, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { Trophy, Clock, Users, Code, Play, Send, Eye, EyeOff, CheckCircle, Shield, AlertTriangle } from 'lucide-react';
 
 const ContestRoom = () => {
   const { contestId } = useParams();
@@ -58,8 +58,9 @@ const ContestRoom = () => {
 
   // Anti-cheat measures
   const [antiCheatViolations, setAntiCheatViolations] = useState([]);
+  const [isDisqualified, setIsDisqualified] = useState(false);
 
-  const handleAntiCheatViolation = useCallback((violation) => {
+  const handleAntiCheatViolation = useCallback(async (violation) => {
     console.log('Anti-cheat violation detected:', violation);
     setAntiCheatWarning(`Anti-cheat violation: ${violation.message}`);
     setTimeout(() => setAntiCheatWarning(''), 5000);
@@ -69,7 +70,37 @@ const ContestRoom = () => {
       ...violation,
       timestamp: new Date(),
     }]);
-  }, []);
+
+    // Check for serious violations that trigger disqualification
+    const seriousViolations = ['FOCUS_LOST', 'TAB_SWITCH', 'FULLSCREEN_EXIT'];
+    if (seriousViolations.includes(violation.type)) {
+      try {
+        // Report violation to server for disqualification
+        const response = await fetch(API_ENDPOINTS.contestAntiCheatViolation(contestId), {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${await getToken()}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            violation,
+            isVirtual,
+            virtualStartTime: virtualStartTime?.toISOString(),
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.disqualified) {
+            setIsDisqualified(true);
+            setError('You have been disqualified from this contest due to anti-cheat violations.');
+          }
+        }
+      } catch (err) {
+        console.error('Failed to report anti-cheat violation:', err);
+      }
+    }
+  }, [contestId, getToken, isVirtual, virtualStartTime]);
 
   const handleAntiCheatWarning = useCallback((message) => {
     setAntiCheatWarning(message);
@@ -112,6 +143,35 @@ const ContestRoom = () => {
   useEffect(() => {
     fetchContestDetails();
   }, [contestId]);
+
+  // Check disqualification status on page load
+  useEffect(() => {
+    const checkDisqualificationStatus = async () => {
+      if (!contestId || !user) return;
+
+      try {
+        const response = await fetch(API_ENDPOINTS.contestDisqualificationStatus(contestId), {
+          headers: {
+            'Authorization': `Bearer ${await getToken()}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setIsDisqualified(data.isDisqualified);
+
+          if (data.isDisqualified) {
+            setError('You have been disqualified from this contest due to anti-cheat violations.');
+          }
+        }
+      } catch (err) {
+        console.error('Failed to check disqualification status:', err);
+        // Don't show error to user as this is not critical
+      }
+    };
+
+    checkDisqualificationStatus();
+  }, [contestId, user, getToken]);
 
   // Handle virtual contest initialization
   useEffect(() => {
@@ -332,6 +392,12 @@ const ContestRoom = () => {
   const handleSubmit = async () => {
     if (!code.trim() || !problems[currentProblem]) return;
 
+    // Prevent submission if disqualified
+    if (isDisqualified) {
+      setError('Cannot submit: You have been disqualified from this contest.');
+      return;
+    }
+
     try {
       setSubmitting(true);
       const response = await fetch(API_ENDPOINTS.contestSubmit(contestId, problems[currentProblem].id), {
@@ -357,6 +423,10 @@ const ContestRoom = () => {
         setError('');
       } else {
         setError(data.error || 'Failed to submit code');
+        // Check if disqualified from server response
+        if (data.disqualified) {
+          setIsDisqualified(true);
+        }
       }
     } catch (err) {
       setError('Failed to submit code');
@@ -562,10 +632,58 @@ const ContestRoom = () => {
           </div>
         )}
 
+        {/* Disqualification Banner */}
+        {isDisqualified && (
+          <div className="bg-destructive/20 border-2 border-destructive text-destructive px-6 py-4 rounded-lg mb-6 flex items-center space-x-3">
+            <div className="flex-shrink-0">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="font-bold text-lg">Disqualified</h3>
+              <p className="text-sm">You have been disqualified from this contest due to anti-cheat violations. You cannot submit solutions.</p>
+            </div>
+          </div>
+        )}
+
         {/* Error Message */}
-        {error && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg mb-6">
+        {error && !isDisqualified && (
+          <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg mb-6">
             {error}
+          </div>
+        )}
+
+        {/* Anti-cheat Warning */}
+        {antiCheatWarning && (
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200 px-4 py-3 rounded-lg mb-6 flex items-center space-x-2">
+            <AlertTriangle className="h-5 w-5" />
+            <span>{antiCheatWarning}</span>
+          </div>
+        )}
+
+        {/* Disqualification Notice */}
+        {isDisqualified && (
+          <div className="bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-800 dark:text-red-200 px-4 py-3 rounded-lg mb-6 flex items-center space-x-2">
+            <AlertTriangle className="h-5 w-5" />
+            <div>
+              <div className="font-semibold">Contest Disqualification</div>
+              <div className="text-sm">You have been disqualified from this contest due to anti-cheat violations. Your submissions will not be counted.</div>
+            </div>
+          </div>
+        )}
+
+        {/* Anti-cheat Status Indicator */}
+        {antiCheatActive && (isRegistered || isVirtual) && (
+          <div className="bg-primary/10 border border-primary/20 text-primary px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Shield className={`h-5 w-5 ${hasFocus && isFullscreen ? 'text-green-600' : 'text-yellow-600'}`} />
+              <span className="font-medium">Anti-cheat Protection Active</span>
+            </div>
+            <div className="text-sm">
+              Status: {hasFocus && isFullscreen ? 'Secure' : 'Monitoring'}
+              {!isFullscreenSupported && ' (Fullscreen not supported)'}
+            </div>
           </div>
         )}
 
@@ -581,7 +699,7 @@ const ContestRoom = () => {
                       onClick={() => setActiveTab('problem')}
                       className={`py-2 px-1 border-b-2 font-medium text-sm ${
                         activeTab === 'problem'
-                          ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                          ? 'border-primary text-primary'
                           : 'border-transparent text-muted-foreground hover:text-foreground'
                       }`}
                     >
@@ -592,7 +710,7 @@ const ContestRoom = () => {
                     onClick={() => setActiveTab('leaderboard')}
                     className={`py-2 px-1 border-b-2 font-medium text-sm ${
                       activeTab === 'leaderboard'
-                        ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                        ? 'border-primary text-primary'
                         : 'border-transparent text-muted-foreground hover:text-foreground'
                     }`}
                   >
@@ -606,7 +724,7 @@ const ContestRoom = () => {
                       onClick={() => setActiveTab('submissions')}
                       className={`py-2 px-1 border-b-2 font-medium text-sm ${
                         activeTab === 'submissions'
-                          ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                          ? 'border-primary text-primary'
                           : 'border-transparent text-muted-foreground hover:text-foreground'
                       }`}
                     >
@@ -658,7 +776,7 @@ const ContestRoom = () => {
                       onClick={() => handleProblemChange(index)}
                       className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 ${
                         currentProblem === index
-                          ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                          ? 'border-primary text-primary'
                           : 'border-transparent text-muted-foreground hover:text-foreground'
                       }`}
                     >
@@ -709,9 +827,9 @@ const ContestRoom = () => {
                     )}
 
                     {/* Submission Instructions */}
-                    <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                      <h4 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">📝 How to Submit</h4>
-                      <ul className="text-sm text-blue-800 dark:text-blue-300 space-y-1">
+                    <div className="mt-6 bg-primary/10 border border-primary/20 rounded-lg p-4">
+                      <h4 className="font-semibold text-primary mb-2">📝 How to Submit</h4>
+                      <ul className="text-sm text-primary space-y-1">
                         <li>• Complete the function template provided in the code editor</li>
                         <li>• Use the <strong>Run</strong> button to test your code with examples</li>
                         <li>• Add custom test cases in the input box below the editor</li>
@@ -752,10 +870,11 @@ const ContestRoom = () => {
                     </button>
                     <button
                       onClick={handleSubmit}
-                      disabled={submitting || !code.trim()}
+                      disabled={submitting || !code.trim() || isDisqualified}
                       className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                      title={isDisqualified ? 'Cannot submit - you have been disqualified' : ''}
                     >
-                      {submitting ? 'Submitting...' : 'Submit'}
+                      {submitting ? 'Submitting...' : isDisqualified ? 'Disqualified' : 'Submit'}
                     </button>
                   </div>
                 </div>
@@ -876,15 +995,15 @@ const ContestRoom = () => {
                       }
                     </p>
                     {contestStatus === 'upcoming' && isRegistered && (
-                      <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                      <div className="mt-4 p-3 bg-primary/10 border border-primary/20 rounded-lg">
                         <div className="flex items-center justify-center space-x-2">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                          <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                          <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+                          <span className="text-sm font-medium text-primary">
                             Waiting for contest to start...
                           </span>
                         </div>
                         {timeRemaining && (
-                          <p className="text-sm text-blue-700 dark:text-blue-300 mt-2 text-center">
+                          <p className="text-sm text-primary mt-2 text-center">
                             Contest starts in: {formatTime(timeRemaining)}
                           </p>
                         )}
@@ -957,7 +1076,7 @@ const ContestRoom = () => {
                           key={entry.userId}
                           className={`p-4 ${
                             entry.username === user?.username
-                              ? 'bg-blue-50 dark:bg-blue-900/20'
+                              ? 'bg-primary/10'
                               : ''
                           }`}
                         >

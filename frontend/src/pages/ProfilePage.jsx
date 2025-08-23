@@ -33,6 +33,10 @@ export function ProfilePage() {
   const [isAddingFriend, setIsAddingFriend] = useState(false)
   const [friendsLoading, setFriendsLoading] = useState(false)
 
+  // Contest ranking state
+  const [contestRanking, setContestRanking] = useState(null)
+  const [contestRankingLoading, setContestRankingLoading] = useState(false)
+
   useEffect(() => {
     if (user) {
       setFormData({
@@ -42,6 +46,7 @@ export function ProfilePage() {
         bio: user.bio || ''
       })
       loadFriendsData()
+      loadContestRanking()
     }
   }, [user])
 
@@ -71,6 +76,24 @@ export function ProfilePage() {
       console.error('Failed to load friends data:', error)
     } finally {
       setFriendsLoading(false)
+    }
+  }
+
+  const loadContestRanking = async () => {
+    setContestRankingLoading(true)
+    try {
+      const token = await getToken()
+      const response = await apiClient.request('/api/contest-rankings/me', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+
+      if (response.ranking) {
+        setContestRanking(response.ranking)
+      }
+    } catch (error) {
+      console.error('Failed to load contest ranking:', error)
+    } finally {
+      setContestRankingLoading(false)
     }
   }
 
@@ -454,6 +477,42 @@ export function ProfilePage() {
                 </Badge>
                 <p className="text-3xl font-bold text-primary">{(user.stats?.xp || 0).toLocaleString()} XP</p>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Contest Ranking */}
+          <Card className="bg-gradient-to-br from-blue-500/5 to-cyan-600/10">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Trophy className="h-5 w-5 text-blue-500" />
+                <span>Contest Ranking</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {contestRankingLoading ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                </div>
+              ) : contestRanking ? (
+                <div className="text-center">
+                  <Badge variant="secondary" className="text-lg px-6 py-2 mb-3 bg-gradient-to-r from-blue-500/10 to-cyan-600/10">
+                    {contestRanking.rank}
+                  </Badge>
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-2">
+                    {contestRanking.rating} Rating
+                  </p>
+                  <div className="text-sm text-muted-foreground space-y-1">
+                    <p>Max Rating: {contestRanking.maxRating}</p>
+                    <p>Contests: {contestRanking.contestsParticipated}</p>
+                    <p>Wins: {contestRanking.contestsWon}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <Trophy className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground">Participate in contests to get ranked!</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

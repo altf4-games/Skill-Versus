@@ -278,12 +278,15 @@ export const generateLeaderboard = async (contestId, isVirtual = false) => {
     contestId,
     isVirtual,
   }).sort({ submissionTime: 1 });
-  
+
   const userStats = {};
-  
+
   // Get contest details for penalty calculation
   const contest = await Contest.findById(contestId);
   const penaltyPerWrongSubmission = contest?.penaltyPerWrongSubmission || 20;
+
+  // Get disqualified users
+  const disqualifiedUsers = await redisContestUtils.getDisqualifiedUsers(contestId);
 
   // Process submissions to calculate scores
   submissions.forEach(submission => {
@@ -348,6 +351,7 @@ export const generateLeaderboard = async (contestId, isVirtual = false) => {
     .map((user, index) => ({
       ...user,
       rank: index + 1,
+      isDisqualified: disqualifiedUsers.includes(user.userId.toString()),
     }));
   
   return leaderboard;
@@ -469,6 +473,14 @@ export const updateContestStatus = async (req, res) => {
       const leaderboard = await generateLeaderboard(contestId);
       contest.finalStandings = leaderboard;
       contest.totalParticipants = leaderboard.length;
+
+      // Also save virtual contest standings if there are any virtual participants
+      const virtualLeaderboard = await generateLeaderboard(contestId, true);
+      if (virtualLeaderboard.length > 0) {
+        contest.virtualFinalStandings = virtualLeaderboard;
+        contest.totalVirtualParticipants = virtualLeaderboard.length;
+      }
+
       await contest.save();
 
       // Update contest ratings for all participants
@@ -493,6 +505,107 @@ export const updateContestStatus = async (req, res) => {
   } catch (error) {
     console.error("Update contest status error:", error);
     res.status(500).json({ error: "Failed to update contest status" });
+  }
+};
+
+// Check user disqualification status
+export const getDisqualificationStatus = async (req, res) => {
+  try {
+    const { contestId } = req.params;
+    const userId = req.auth.userId;
+
+    const user = await User.findOne({ clerkId: userId });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const contest = await Contest.findById(contestId);
+    if (!contest) {
+      return res.status(404).json({ error: "Contest not found" });
+    }
+
+    // Check if user is disqualified in Redis
+    try {
+      await redisContestUtils.init();
+      const disqualifiedUsers = await redisContestUtils.getDisqualifiedUsers(contestId);
+      const isDisqualified = disqualifiedUsers.includes(user._id.toString());
+
+      res.json({
+        isDisqualified,
+        contestId,
+        userId: user._id.toString()
+      });
+    } catch (redisError) {
+      console.warn("Redis check failed, assuming not disqualified:", redisError.message);
+      res.json({
+        isDisqualified: false,
+        contestId,
+        userId: user._id.toString()
+      });
+    }
+
+  } catch (error) {
+    console.error("Get disqualification status error:", error);
+    res.status(500).json({ error: "Failed to get disqualification status" });
+  }
+};
+
+// Handle anti-cheat violations
+export const handleAntiCheatViolation = async (req, res) => {
+  try {
+    const { contestId } = req.params;
+    const { violation, isVirtual, virtualStartTime } = req.body;
+    const userId = req.auth.userId;
+
+    const user = await User.findOne({ clerkId: userId });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const contest = await Contest.findById(contestId);
+    if (!contest) {
+      return res.status(404).json({ error: "Contest not found" });
+    }
+
+    // Check if user is registered for the contest
+    const isRegistered = contest.isUserRegistered(user._id);
+    if (!isRegistered && !isVirtual) {
+      return res.status(403).json({ error: "User not registered for contest" });
+    }
+
+    // Log the violation
+    console.log(`[ANTI-CHEAT] Contest violation - User: ${user.username}, Contest: ${contestId}, Type: ${violation.type}`);
+
+    // Check for serious violations that trigger disqualification
+    const seriousViolations = ['FOCUS_LOST', 'TAB_SWITCH', 'FULLSCREEN_EXIT'];
+    let disqualified = false;
+
+    if (seriousViolations.includes(violation.type)) {
+      // Mark user as disqualified in Redis
+      await redisContestUtils.disqualifyUser(contestId, user._id.toString(), {
+        reason: violation.message,
+        timestamp: new Date(),
+        violationType: violation.type,
+        isVirtual
+      });
+
+      disqualified = true;
+      console.log(`[ANTI-CHEAT] User ${user.username} disqualified from contest ${contestId}`);
+    }
+
+    res.json({
+      message: "Anti-cheat violation recorded",
+      disqualified,
+      violation: {
+        type: violation.type,
+        message: violation.message,
+        timestamp: new Date()
+      }
+    });
+
+  } catch (error) {
+    console.error("Handle anti-cheat violation error:", error);
+    res.status(500).json({ error: "Failed to handle anti-cheat violation" });
   }
 };
 

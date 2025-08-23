@@ -1,4 +1,5 @@
 import Problem from "../models/Problem.js";
+import User from "../models/User.js";
 
 // Seed Two Sum problem
 export const seedTwoSumProblem = async (req, res) => {
@@ -97,6 +98,82 @@ You can return the answer in any order.`,
       error: "Failed to seed Two Sum problem",
       message: error.message,
     });
+  }
+};
+
+// Create a new problem (admin only)
+export const createProblem = async (req, res) => {
+  try {
+    const userId = req.auth.userId;
+
+    // Check if user is contest admin
+    const user = await User.findOne({ clerkId: userId });
+    if (!user || !user.contestAdmin) {
+      return res.status(403).json({ error: "Access denied. Contest admin required." });
+    }
+
+    const {
+      title,
+      description,
+      difficulty,
+      timeLimit,
+      memoryLimit,
+      tags,
+      examples,
+      testCases,
+      functionSignatures,
+      driverCode
+    } = req.body;
+
+    // Validate required fields
+    if (!title || !description || !examples || !testCases) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Check if problem with same title already exists
+    const existingProblem = await Problem.findOne({ title });
+    if (existingProblem) {
+      return res.status(400).json({ error: "Problem with this title already exists" });
+    }
+
+    // Transform testCases to match model schema
+    const transformedTestCases = testCases.map(tc => ({
+      input: tc.input,
+      expectedOutput: tc.output,
+      isHidden: tc.isHidden || false
+    }));
+
+    // Create problem
+    const problem = new Problem({
+      title,
+      description,
+      difficulty: difficulty || 'Easy',
+      timeLimit: timeLimit || 2000,
+      memoryLimit: memoryLimit || 256,
+      tags: tags || [],
+      examples,
+      testCases: transformedTestCases,
+      functionSignatures: functionSignatures || {},
+      driverCode: driverCode || {},
+      createdBy: user._id,
+      createdByUsername: user.username,
+      constraints: '', // Add empty constraints for now
+    });
+
+    await problem.save();
+
+    res.status(201).json({
+      message: "Problem created successfully",
+      problem: {
+        id: problem._id,
+        title: problem.title,
+        difficulty: problem.difficulty,
+      },
+    });
+
+  } catch (error) {
+    console.error("Create problem error:", error);
+    res.status(500).json({ error: "Failed to create problem" });
   }
 };
 

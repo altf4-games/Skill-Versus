@@ -13,6 +13,8 @@ export const API_ENDPOINTS = {
   contestSubmit: (contestId, problemId) => `${API_BASE_URL}/api/contests/${contestId}/problems/${problemId}/submit`,
   contestVirtualStart: (id) => `${API_BASE_URL}/api/contests/${id}/virtual/start`,
   contestVirtualRankings: (id) => `${API_BASE_URL}/api/contests/${id}/virtual/rankings`,
+  contestAntiCheatViolation: (id) => `${API_BASE_URL}/api/contests/${id}/anti-cheat-violation`,
+  contestDisqualificationStatus: (id) => `${API_BASE_URL}/api/contests/${id}/disqualification-status`,
   submissionStatus: (id) => `${API_BASE_URL}/api/contests/submissions/${id}`,
   
   // Contest ranking endpoints

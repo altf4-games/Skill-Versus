@@ -157,30 +157,30 @@ const CreateContestPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-background">
       <SEO title="Create Contest" description="Create a new competitive programming contest" />
       
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            <h1 className="text-3xl font-bold text-foreground mb-2">
               Create Contest
             </h1>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-muted-foreground">
               Set up a new competitive programming contest
             </p>
           </div>
 
           {/* Messages */}
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg mb-6">
+            <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg mb-6">
               {error}
             </div>
           )}
 
           {success && (
-            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-lg mb-6">
+            <div className="bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-400 px-4 py-3 rounded-lg mb-6">
               {success}
             </div>
           )}
@@ -188,14 +188,14 @@ const CreateContestPage = () => {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-8">
             {/* Basic Information */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            <div className="bg-card rounded-lg shadow-sm border border-border p-6">
+              <h2 className="text-xl font-semibold text-foreground mb-4">
                 Basic Information
               </h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     Contest Title *
                   </label>
                   <input
@@ -204,13 +204,13 @@ const CreateContestPage = () => {
                     value={formData.title}
                     onChange={handleInputChange}
                     required
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-transparent"
                     placeholder="Enter contest title"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     Start Time *
                   </label>
                   <input
@@ -219,12 +219,12 @@ const CreateContestPage = () => {
                     value={formData.startTime || getDefaultStartTime()}
                     onChange={handleInputChange}
                     required
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-transparent"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     Duration (minutes) *
                   </label>
                   <input
@@ -235,12 +235,12 @@ const CreateContestPage = () => {
                     required
                     min="30"
                     max="300"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-transparent"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     Max Participants
                   </label>
                   <input
@@ -249,14 +249,14 @@ const CreateContestPage = () => {
                     value={formData.maxParticipants}
                     onChange={handleInputChange}
                     min="1"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-transparent"
                     placeholder="Leave empty for unlimited"
                   />
                 </div>
               </div>
 
               <div className="mt-6">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Description *
                 </label>
                 <textarea
@@ -265,21 +265,21 @@ const CreateContestPage = () => {
                   onChange={handleInputChange}
                   required
                   rows="4"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-transparent"
                   placeholder="Describe the contest..."
                 />
               </div>
             </div>
 
             {/* Contest Settings */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            <div className="bg-card rounded-lg shadow-sm border border-border p-6">
+              <h2 className="text-xl font-semibold text-foreground mb-4">
                 Contest Settings
               </h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     Penalty per Wrong Submission (minutes)
                   </label>
                   <input
@@ -288,12 +288,12 @@ const CreateContestPage = () => {
                     value={formData.penaltyPerWrongSubmission}
                     onChange={handleInputChange}
                     min="0"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-transparent"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     Max Submissions per Problem
                   </label>
                   <input
@@ -302,7 +302,7 @@ const CreateContestPage = () => {
                     value={formData.maxSubmissionsPerProblem}
                     onChange={handleInputChange}
                     min="1"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-transparent"
                   />
                 </div>
               </div>
@@ -314,9 +314,9 @@ const CreateContestPage = () => {
                     name="isPublic"
                     checked={formData.isPublic}
                     onChange={handleInputChange}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-primary focus:ring-ring border-input rounded"
                   />
-                  <label className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                  <label className="ml-2 text-sm text-foreground">
                     Public contest (visible to all users)
                   </label>
                 </div>
@@ -327,9 +327,9 @@ const CreateContestPage = () => {
                     name="allowVirtualParticipation"
                     checked={formData.allowVirtualParticipation}
                     onChange={handleInputChange}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-primary focus:ring-ring border-input rounded"
                   />
-                  <label className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                  <label className="ml-2 text-sm text-foreground">
                     Allow virtual participation after contest ends
                   </label>
                 </div>
@@ -337,13 +337,13 @@ const CreateContestPage = () => {
             </div>
 
             {/* Problem Selection */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            <div className="bg-card rounded-lg shadow-sm border border-border p-6">
+              <h2 className="text-xl font-semibold text-foreground mb-4">
                 Select Problems
               </h2>
-              
+
               {problems.length === 0 ? (
-                <p className="text-gray-500 dark:text-gray-400">No problems available</p>
+                <p className="text-muted-foreground">No problems available</p>
               ) : (
                 <div className="space-y-4">
                   {problems.map((problem) => {
@@ -355,8 +355,8 @@ const CreateContestPage = () => {
                         key={problem._id}
                         className={`border rounded-lg p-4 ${
                           isSelected
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                            : 'border-gray-200 dark:border-gray-600'
+                            ? 'border-primary bg-primary/10'
+                            : 'border-border'
                         }`}
                       >
                         <div className="flex items-start justify-between">
@@ -365,13 +365,13 @@ const CreateContestPage = () => {
                               type="checkbox"
                               checked={isSelected}
                               onChange={() => handleProblemToggle(problem._id)}
-                              className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                              className="mt-1 h-4 w-4 text-primary focus:ring-ring border-input rounded"
                             />
                             <div>
-                              <h3 className="font-medium text-gray-900 dark:text-white">
+                              <h3 className="font-medium text-foreground">
                                 {problem.title}
                               </h3>
-                              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                              <p className="text-sm text-muted-foreground mt-1">
                                 Difficulty: {problem.difficulty}
                               </p>
                             </div>
@@ -380,7 +380,7 @@ const CreateContestPage = () => {
                           {isSelected && (
                             <div className="flex space-x-2">
                               <div>
-                                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                <label className="block text-xs text-muted-foreground mb-1">
                                   Points
                                 </label>
                                 <input
@@ -389,11 +389,11 @@ const CreateContestPage = () => {
                                   onChange={(e) => handleProblemPointsChange(problem._id, e.target.value)}
                                   min="1"
                                   max="1000"
-                                  className="w-20 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                  className="w-20 px-2 py-1 text-sm border border-input rounded bg-background text-foreground"
                                 />
                               </div>
                               <div>
-                                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                <label className="block text-xs text-muted-foreground mb-1">
                                   Order
                                 </label>
                                 <input
@@ -401,7 +401,7 @@ const CreateContestPage = () => {
                                   value={selectedProblem?.order || 1}
                                   onChange={(e) => handleProblemOrderChange(problem._id, e.target.value)}
                                   min="1"
-                                  className="w-20 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                  className="w-20 px-2 py-1 text-sm border border-input rounded bg-background text-foreground"
                                 />
                               </div>
                             </div>
@@ -419,14 +419,14 @@ const CreateContestPage = () => {
               <button
                 type="button"
                 onClick={() => navigate('/contests')}
-                className="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="px-6 py-2 border border-input text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={loading || selectedProblems.length === 0}
-                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
+                className="px-6 py-2 bg-primary hover:bg-primary/90 disabled:bg-muted text-primary-foreground rounded-lg font-medium transition-colors"
               >
                 {loading ? 'Creating...' : 'Create Contest'}
               </button>

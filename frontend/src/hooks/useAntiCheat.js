@@ -173,9 +173,20 @@ export const useAntiCheat = ({
       if (!isActive) return;
 
       event.preventDefault();
+
+      const violation = {
+        type: "RIGHT_CLICK_ATTEMPT",
+        timestamp: new Date(),
+        message: "Attempted to use right-click context menu during duel",
+      };
+
+      setViolations((prev) => [...prev, violation]);
+      violationCountRef.current += 1;
+
       onWarning("Right-click is disabled during duels");
+      onViolation(violation);
     },
-    [isActive, onWarning]
+    [isActive, onWarning, onViolation]
   );
 
   // Handle window focus/blur events

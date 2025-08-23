@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Progress } from '@/components/ui/progress'
 import { Link } from 'react-router-dom'
-import { Trophy, Zap, Users, Target, Clock, Star, TrendingUp, Medal, Flame, User, Code, Calendar } from 'lucide-react'
+import { Trophy, Zap, Users, Target, Clock, Star, TrendingUp, Medal, Flame, User, Code, Calendar, Plus } from 'lucide-react'
 import { RecentDuels } from '@/components/RecentDuels'
 
 export function DashboardPage() {
@@ -238,6 +238,17 @@ export function DashboardPage() {
                 <Code className="mr-2 h-4 w-4 flex-shrink-0" />
                 <span className="truncate">Practice Mode</span>
               </Button>
+              {user?.contestAdmin && (
+                <Button asChild variant="outline" className="w-full justify-start h-10 px-3 border-primary/50 hover:bg-primary/10">
+                  <Link
+                    to="/problems/create"
+                    className="w-full h-full flex items-center no-underline"
+                  >
+                    <Plus className="mr-2 h-4 w-4 flex-shrink-0 text-primary" />
+                    <span className="truncate text-primary">Create Problem</span>
+                  </Link>
+                </Button>
+              )}
             </CardContent>
           </Card>
 

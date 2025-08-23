@@ -61,6 +61,22 @@ const problemSchema = new mongoose.Schema(
       cpp: { type: String, default: '' },
       c: { type: String, default: '' },
     },
+    driverCode: {
+      javascript: { type: String, default: '' },
+      python: { type: String, default: '' },
+      java: { type: String, default: '' },
+      cpp: { type: String, default: '' },
+      c: { type: String, default: '' },
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: false,
+    },
+    createdByUsername: {
+      type: String,
+      required: false,
+    },
     hints: [String],
     tags: [String],
     timeLimit: {

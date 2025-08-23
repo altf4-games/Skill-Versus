@@ -46,6 +46,14 @@ class RedisContestUtils {
     return `contest:${contestId}:user:${userId}:data`;
   }
 
+  getDisqualifiedUsersKey(contestId) {
+    return `contest:${contestId}:disqualified`;
+  }
+
+  getUserDisqualificationKey(contestId, userId) {
+    return `contest:${contestId}:user:${userId}:disqualified`;
+  }
+
   // Contest Management
   async setContestData(contestId, contestData, ttlSeconds) {
     if (!this.redis) await this.init();
@@ -178,6 +186,53 @@ class RedisContestUtils {
     } catch (error) {
       return false;
     }
+  }
+
+  // Disqualification Management
+  async disqualifyUser(contestId, userId, disqualificationData) {
+    if (!this.redis) await this.init();
+
+    // Add to disqualified users set
+    const disqualifiedKey = this.getDisqualifiedUsersKey(contestId);
+    await this.redis.sAdd(disqualifiedKey, userId);
+
+    // Store disqualification details
+    const userDisqualificationKey = this.getUserDisqualificationKey(contestId, userId);
+    await this.redis.setEx(userDisqualificationKey, 86400 * 7, JSON.stringify(disqualificationData)); // 7 days TTL
+
+    // Set TTL for disqualified users set
+    await this.redis.expire(disqualifiedKey, 86400 * 7); // 7 days TTL
+  }
+
+  async isUserDisqualified(contestId, userId) {
+    if (!this.redis) await this.init();
+    const key = this.getDisqualifiedUsersKey(contestId);
+    return await this.redis.sIsMember(key, userId);
+  }
+
+  async getUserDisqualificationData(contestId, userId) {
+    if (!this.redis) await this.init();
+    const key = this.getUserDisqualificationKey(contestId, userId);
+    const data = await this.redis.get(key);
+    return data ? JSON.parse(data) : null;
+  }
+
+  async removeUserDisqualification(contestId, userId) {
+    if (!this.redis) await this.init();
+
+    // Remove from disqualified users set
+    const disqualifiedKey = this.getDisqualifiedUsersKey(contestId);
+    await this.redis.sRem(disqualifiedKey, userId);
+
+    // Remove disqualification details
+    const userDisqualificationKey = this.getUserDisqualificationKey(contestId, userId);
+    await this.redis.del(userDisqualificationKey);
+  }
+
+  async getDisqualifiedUsers(contestId) {
+    if (!this.redis) await this.init();
+    const key = this.getDisqualifiedUsersKey(contestId);
+    return await this.redis.sMembers(key);
   }
 }
 

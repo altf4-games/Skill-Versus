@@ -1100,6 +1100,10 @@ class SocketManager {
             timestamp: new Date(),
           });
 
+          // Count violations for this user
+          const userViolations = room.antiCheatViolations.filter(v => v.userId === socket.userId);
+          const userViolationCount = userViolations.length;
+
           // For serious violations (focus loss, tab switch, fullscreen exit), end the duel
           const seriousViolations = [
             "FOCUS_LOST",
@@ -1107,10 +1111,23 @@ class SocketManager {
             "FULLSCREEN_EXIT",
           ];
 
-          if (seriousViolations.includes(violation.type)) {
+          // Minor violations that accumulate
+          const minorViolations = [
+            "RIGHT_CLICK_ATTEMPT",
+            "KEYBOARD_SHORTCUT",
+            "DEV_TOOLS_ATTEMPT",
+          ];
+
+          // Check if this is a serious violation or if minor violations have accumulated
+          const shouldDisqualify = seriousViolations.includes(violation.type) ||
+                                  (minorViolations.includes(violation.type) && userViolationCount >= 5);
+
+          if (shouldDisqualify) {
             // Mark the violating participant as disqualified
             participant.disqualified = true;
-            participant.disqualificationReason = violation.message;
+            participant.disqualificationReason = seriousViolations.includes(violation.type)
+              ? violation.message
+              : `Multiple anti-cheat violations (${userViolationCount} total)`;
 
             // Find the other participant as winner
             const otherParticipant = room.participants.find(
@@ -1149,12 +1166,24 @@ class SocketManager {
               await saveDuelHistory(room, "anti-cheat");
             }
           } else {
-            // For minor violations, just notify other participants
+            // For minor violations, notify other participants and warn user
             socket.to(roomCode).emit("anti-cheat-warning", {
               userId: socket.userId,
               username: socket.username,
               violation: violation,
             });
+
+            // Warn user about accumulating violations
+            if (minorViolations.includes(violation.type)) {
+              const remainingViolations = 5 - userViolationCount;
+              if (remainingViolations <= 2) {
+                socket.emit("anti-cheat-warning", {
+                  message: `Warning: ${remainingViolations} more violations will result in disqualification`,
+                  violationCount: userViolationCount,
+                  maxViolations: 5
+                });
+              }
+            }
           }
         } catch (error) {
           console.error("Anti-cheat violation handler error:", error);

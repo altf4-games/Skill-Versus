@@ -29,22 +29,21 @@ const contestRankingSchema = new mongoose.Schema(
       max: 4000,
     },
     
-    // Rank based on rating
+    // Rank based on rating (Valorant-style)
     rank: {
       type: String,
       enum: [
-        "Newbie",        // 0-1199
-        "Pupil",         // 1200-1399  
-        "Specialist",    // 1400-1599
-        "Expert",        // 1600-1899
-        "Candidate Master", // 1900-2099
-        "Master",        // 2100-2299
-        "International Master", // 2300-2399
-        "Grandmaster",   // 2400-2599
-        "International Grandmaster", // 2600-2999
-        "Legendary Grandmaster" // 3000+
+        "Iron",          // 0-1199
+        "Bronze",        // 1200-1399
+        "Silver",        // 1400-1599
+        "Gold",          // 1600-1899
+        "Platinum",      // 1900-2099
+        "Diamond",       // 2100-2299
+        "Ascendant",     // 2300-2399
+        "Immortal",      // 2400-2599
+        "Radiant"        // 2600+
       ],
-      default: "Newbie",
+      default: "Iron",
     },
     
     // Contest participation stats
@@ -238,16 +237,15 @@ contestRankingSchema.virtual("solveRate").get(function () {
 // Methods
 contestRankingSchema.methods.updateRank = function () {
   const rating = this.rating;
-  if (rating >= 3000) this.rank = "Legendary Grandmaster";
-  else if (rating >= 2600) this.rank = "International Grandmaster";
-  else if (rating >= 2400) this.rank = "Grandmaster";
-  else if (rating >= 2300) this.rank = "International Master";
-  else if (rating >= 2100) this.rank = "Master";
-  else if (rating >= 1900) this.rank = "Candidate Master";
-  else if (rating >= 1600) this.rank = "Expert";
-  else if (rating >= 1400) this.rank = "Specialist";
-  else if (rating >= 1200) this.rank = "Pupil";
-  else this.rank = "Newbie";
+  if (rating >= 2600) this.rank = "Radiant";
+  else if (rating >= 2400) this.rank = "Immortal";
+  else if (rating >= 2300) this.rank = "Ascendant";
+  else if (rating >= 2100) this.rank = "Diamond";
+  else if (rating >= 1900) this.rank = "Platinum";
+  else if (rating >= 1600) this.rank = "Gold";
+  else if (rating >= 1400) this.rank = "Silver";
+  else if (rating >= 1200) this.rank = "Bronze";
+  else this.rank = "Iron";
 };
 
 contestRankingSchema.methods.updateRating = function (newRating, contestData) {

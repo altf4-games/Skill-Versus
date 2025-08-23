@@ -144,9 +144,48 @@ const contestSchema = new mongoose.Schema(
         type: Date,
       },
     }],
-    
+
+    // Virtual contest final results
+    virtualFinalStandings: [{
+      userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        required: true,
+      },
+      username: {
+        type: String,
+        required: true,
+      },
+      rank: {
+        type: Number,
+        required: true,
+      },
+      totalScore: {
+        type: Number,
+        required: true,
+        default: 0,
+      },
+      totalPenalty: {
+        type: Number,
+        required: true,
+        default: 0,
+      },
+      problemsSolved: {
+        type: Number,
+        required: true,
+        default: 0,
+      },
+      lastSubmissionTime: {
+        type: Date,
+      },
+    }],
+
     // Statistics
     totalParticipants: {
+      type: Number,
+      default: 0,
+    },
+    totalVirtualParticipants: {
       type: Number,
       default: 0,
     },

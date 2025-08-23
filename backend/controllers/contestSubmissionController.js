@@ -93,7 +93,18 @@ export const submitContestCode = async (req, res) => {
         return res.status(403).json({ error: "Not registered for this contest" });
       }
     }
-    
+
+    // Check if user is disqualified
+    const isDisqualified = await redisContestUtils.isUserDisqualified(contestId, user._id.toString());
+    if (isDisqualified) {
+      const disqualificationData = await redisContestUtils.getUserDisqualificationData(contestId, user._id.toString());
+      return res.status(403).json({
+        error: "You have been disqualified from this contest",
+        disqualified: true,
+        reason: disqualificationData?.reason || "Anti-cheat violation"
+      });
+    }
+
     // Check submission limits
     const userSubmissions = await ContestSubmission.countDocuments({
       contestId,

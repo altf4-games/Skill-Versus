@@ -11,6 +11,8 @@ import {
   updateContestStatus,
   getContestProblems,
   getVirtualContestRankings,
+  getDisqualificationStatus,
+  handleAntiCheatViolation,
 } from "../controllers/contestController.js";
 import {
   submitContestCode,
@@ -35,6 +37,10 @@ router.get("/:contestId/virtual/rankings", getVirtualContestRankings);
 // Submission routes
 router.post("/:contestId/problems/:problemId/submit", requireAuth(), submitContestCode);
 router.get("/submissions/:submissionId", requireAuth(), getSubmissionStatus);
+
+// Anti-cheat routes
+router.get("/:contestId/disqualification-status", requireAuth(), getDisqualificationStatus);
+router.post("/:contestId/anti-cheat-violation", requireAuth(), handleAntiCheatViolation);
 
 // Admin routes
 router.patch("/:contestId/status", requireAuth(), updateContestStatus);
