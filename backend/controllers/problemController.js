@@ -119,6 +119,7 @@ export const createProblem = async (req, res) => {
       timeLimit,
       memoryLimit,
       tags,
+      isContestOnly,
       examples,
       testCases,
       functionSignatures,
@@ -151,6 +152,7 @@ export const createProblem = async (req, res) => {
       timeLimit: timeLimit || 2000,
       memoryLimit: memoryLimit || 256,
       tags: tags || [],
+      isContestOnly: isContestOnly || false,
       examples,
       testCases: transformedTestCases,
       functionSignatures: functionSignatures || {},
@@ -179,7 +181,22 @@ export const createProblem = async (req, res) => {
 
 export const getAllProblems = async (req, res) => {
   try {
-    const problems = await Problem.find().sort({ createdAt: -1 });
+    const { includeContestOnly } = req.query;
+
+
+    let query = {};
+    if (includeContestOnly === 'true') {
+      query = { isContestOnly: true };
+    } else {
+      query = {
+        $or: [
+          { isContestOnly: { $exists: false } },
+          { isContestOnly: false }
+        ]
+      };
+    }
+
+    const problems = await Problem.find(query).sort({ createdAt: -1 });
     res.json({ problems });
   } catch (error) {
     console.error("Error getting problems:", error);

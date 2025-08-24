@@ -197,16 +197,26 @@ class SocketManager {
           const { timeLimit = 30 } = data;
 
           // Get a random problem
-          const problemCount = await Problem.countDocuments({ isActive: true });
+          const problemCount = await Problem.countDocuments({
+            isActive: true,
+            $or: [
+              { isContestOnly: { $exists: false } },
+              { isContestOnly: false }
+            ]
+          });
           if (problemCount === 0) {
             socket.emit("error", { message: "No problems available" });
             return;
           }
 
           const randomSkip = Math.floor(Math.random() * problemCount);
-          const problem = await Problem.findOne({ isActive: true }).skip(
-            randomSkip
-          );
+          const problem = await Problem.findOne({
+            isActive: true,
+            $or: [
+              { isContestOnly: { $exists: false } },
+              { isContestOnly: false }
+            ]
+          }).skip(randomSkip);
 
           // Generate unique room code
           let roomCode;
@@ -475,7 +485,12 @@ class SocketManager {
                 if (room.duelType === "coding") {
                   // Get a random problem for the duel
                   const Problem = (await import("../models/Problem.js")).default;
-                  const problems = await Problem.find();
+                  const problems = await Problem.find({
+                    $or: [
+                      { isContestOnly: { $exists: false } },
+                      { isContestOnly: false }
+                    ]
+                  });
 
                   if (problems.length === 0) {
                     console.error("No problems found in database");

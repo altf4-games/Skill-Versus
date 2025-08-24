@@ -77,6 +77,10 @@ const problemSchema = new mongoose.Schema(
       type: String,
       required: false,
     },
+    isContestOnly: {
+      type: Boolean,
+      default: false,
+    },
     hints: [String],
     tags: [String],
     timeLimit: {

@@ -21,6 +21,7 @@ import ContestsPage from '@/pages/ContestsPage'
 import ContestRoom from '@/pages/ContestRoom'
 import CreateContestPage from '@/pages/CreateContestPage'
 import CreateProblemPage from '@/pages/CreateProblemPage'
+import MobileBlocker from '@/components/MobileBlocker'
 
 
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || 'pk_test_Y29tcGV0ZW50LXNxdWlycmVsLTI0LmNsZXJrLmFjY291bnRzLmRldiQ'
@@ -32,8 +33,9 @@ function App() {
         <UserProvider>
           <SocketProvider>
             <Router>
-              <Layout>
-              <Routes>
+              <MobileBlocker>
+                <Layout>
+                <Routes>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/sign-in" element={<SignInPage />} />
                 <Route path="/sign-up" element={<SignUpPage />} />
@@ -128,6 +130,7 @@ function App() {
 
             </Routes>
           </Layout>
+        </MobileBlocker>
         </Router>
         </SocketProvider>
         </UserProvider>

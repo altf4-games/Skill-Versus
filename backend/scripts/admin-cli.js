@@ -36,6 +36,11 @@ const commands = {
     description: 'Add function signatures to problems',
     script: 'addFunctionSignatures.js',
     subcommands: []
+  },
+  'manage-problems': {
+    description: 'Manage problem settings (contest-only flag)',
+    script: 'manageProblems.js',
+    subcommands: ['list', 'set-contest-only', 'unset-contest-only']
   }
 };
 

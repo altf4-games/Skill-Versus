@@ -20,6 +20,7 @@ const CreateProblemPage = () => {
     timeLimit: 2000,
     memoryLimit: 256,
     tags: [],
+    isContestOnly: false,
     examples: [{ input: '', output: '', explanation: '' }],
     testCases: [{ input: '', output: '', isHidden: false }],
     functionSignatures: {
@@ -52,10 +53,10 @@ const CreateProblemPage = () => {
   }, [user, navigate]);
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: type === 'checkbox' ? checked : value
     }));
   };
 
@@ -359,6 +360,22 @@ const CreateProblemPage = () => {
                           </Badge>
                         ))}
                       </div>
+                    </div>
+
+                    <div>
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          name="isContestOnly"
+                          checked={formData.isContestOnly}
+                          onChange={handleInputChange}
+                          className="h-4 w-4 text-primary focus:ring-ring border-input rounded"
+                        />
+                        <span className="text-sm text-foreground">Contest Only Problem</span>
+                      </label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        If checked, this problem will only appear in contests and not in duels or practice mode.
+                      </p>
                     </div>
                   </CardContent>
                 </Card>

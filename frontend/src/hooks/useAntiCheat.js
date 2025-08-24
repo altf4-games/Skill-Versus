@@ -6,6 +6,10 @@ import { useEffect, useCallback, useRef, useState } from "react";
  */
 export const useAntiCheat = ({
   isActive = false,
+  contestStatus = null,
+  isRegistered = false,
+  isVirtual = false,
+  isDisqualified = false,
   onViolation = () => {},
   onWarning = () => {},
   enableFullscreen = true,
@@ -249,6 +253,9 @@ export const useAntiCheat = ({
       enterFullscreen();
     }
   }, [isActive, enableFullscreen, enterFullscreen, isFullscreenSupported]);
+
+  // Monitor activation state (handled by parent via isActive)
+  // No need to handle contestStatus here; isActive is controlled by parent.
 
   // Set up event listeners
   useEffect(() => {

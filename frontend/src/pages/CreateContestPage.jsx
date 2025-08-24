@@ -38,7 +38,7 @@ const CreateContestPage = () => {
 
   const fetchProblems = async () => {
     try {
-      const response = await fetch(API_ENDPOINTS.problems, {
+      const response = await fetch(`${API_ENDPOINTS.problems}?includeContestOnly=true`, {
         headers: {
           'Authorization': `Bearer ${await getToken()}`,
         },

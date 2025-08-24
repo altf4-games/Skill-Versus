@@ -30,7 +30,7 @@ export const useContestRealtime = ({
 
   // Fetch leaderboard
   const fetchLeaderboard = useCallback(async () => {
-    if (!contestId || !isActive) return;
+    if (!contestId) return;
     
     try {
       const params = new URLSearchParams();
@@ -197,6 +197,13 @@ export const useContestRealtime = ({
     setLoading(false);
   }, [fetchLeaderboard, fetchSubmissions, fetchContestStatus, checkPendingSubmissions]);
 
+  // Initial fetch of leaderboard data when component mounts
+  useEffect(() => {
+    if (contestId) {
+      fetchLeaderboard();
+    }
+  }, [contestId, fetchLeaderboard]);
+
   // Effect to start/stop polling based on isActive
   useEffect(() => {
     if (isActive) {
@@ -204,7 +211,7 @@ export const useContestRealtime = ({
     } else {
       stopPolling();
     }
-    
+
     return () => {
       stopPolling();
     };
