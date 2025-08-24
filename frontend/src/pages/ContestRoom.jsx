@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
+  // Show fullscreen modal state
+  const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useUserContext } from '../contexts/UserContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -299,8 +301,8 @@ const ContestRoom = () => {
         if (data.problems.length > 0) {
           setCode(data.problems[0].functionSignature?.javascript || '');
         }
-        // Always trigger fullscreen when problems are set (contest is active and user is registered)
-        enterFullscreen();
+        // Show fullscreen prompt if not already in fullscreen
+        setShowFullscreenPrompt(true);
       } else {
         console.error('Failed to fetch problems:', data.error);
       }
@@ -308,6 +310,12 @@ const ContestRoom = () => {
       console.error('Fetch problems error:', err);
     }
   };
+  // Hide fullscreen prompt if already in fullscreen
+  useEffect(() => {
+    if (isFullscreen) {
+      setShowFullscreenPrompt(false);
+    }
+  }, [isFullscreen]);
 
 
 
@@ -533,6 +541,24 @@ const ContestRoom = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Fullscreen Prompt Modal */}
+      {showFullscreenPrompt && !isFullscreen && contestStatus === 'active' && isRegistered && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-8 max-w-sm w-full text-center">
+            <h2 className="text-xl font-bold mb-4 text-foreground">Contest Started!</h2>
+            <p className="mb-6 text-muted-foreground">Click below to enter fullscreen and begin the contest.</p>
+            <Button
+              className="w-full"
+              onClick={async () => {
+                await enterFullscreen();
+                setShowFullscreenPrompt(false);
+              }}
+            >
+              Enter Fullscreen & Start
+            </Button>
+          </div>
+        </div>
+      )}
       <SEO title={`${contest.title} - Contest`} description={contest.description} />
       
       {/* Anti-cheat warning */}
