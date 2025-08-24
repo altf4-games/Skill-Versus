@@ -120,17 +120,7 @@ export const useAntiCheat = ({
       ) {
         event.preventDefault();
         event.stopPropagation();
-
-        const violation = {
-          type: "KEYBOARD_SHORTCUT",
-          timestamp: new Date(),
-          message: `Attempted to use ${key.toUpperCase()} shortcut during duel`,
-          key: key.toLowerCase(),
-        };
-
-        setViolations((prev) => [...prev, violation]);
         onWarning(`Keyboard shortcuts are disabled during duels`);
-
         return false;
       }
 
@@ -175,22 +165,10 @@ export const useAntiCheat = ({
   const handleContextMenu = useCallback(
     (event) => {
       if (!isActive) return;
-
       event.preventDefault();
-
-      const violation = {
-        type: "RIGHT_CLICK_ATTEMPT",
-        timestamp: new Date(),
-        message: "Attempted to use right-click context menu during duel",
-      };
-
-      setViolations((prev) => [...prev, violation]);
-      violationCountRef.current += 1;
-
       onWarning("Right-click is disabled during duels");
-      onViolation(violation);
     },
-    [isActive, onWarning, onViolation]
+    [isActive, onWarning]
   );
 
   // Handle window focus/blur events

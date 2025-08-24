@@ -5,6 +5,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAntiCheat } from '../hooks/useAntiCheat';
 import { useContestRealtime } from '../hooks/useContestRealtime';
 import { Editor } from '@monaco-editor/react';
+import FullscreenPromptModal from '../components/FullscreenPromptModal';
 import { SEO } from '../components/SEO';
 import { API_ENDPOINTS } from '../config/api';
 import { apiClient } from '../lib/api';
@@ -124,6 +125,23 @@ const ContestRoom = () => {
     enableCopyPastePrevention: true,
     enableFocusDetection: true
   });
+
+  // Fullscreen modal state
+  const [showFullscreenModal, setShowFullscreenModal] = useState(false);
+
+  // Show modal if contest is active, registered, fullscreen required, but not in fullscreen
+  useEffect(() => {
+    if (
+      contestStatus === 'active' &&
+      isRegistered &&
+      isFullscreenSupported &&
+      !isFullscreen
+    ) {
+      setShowFullscreenModal(true);
+    } else {
+      setShowFullscreenModal(false);
+    }
+  }, [contestStatus, isRegistered, isFullscreen, isFullscreenSupported]);
 
   // Real-time contest features
   const {
@@ -868,16 +886,23 @@ const ContestRoom = () => {
                   <div className="flex space-x-2">
                     <button
                       onClick={runCode}
-                      disabled={isRunning || !code.trim()}
+                      disabled={isRunning || !code.trim() || !isFullscreen}
                       className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                      title={!isFullscreen ? 'Enable fullscreen to run code' : ''}
                     >
                       {isRunning ? 'Running...' : 'Run'}
                     </button>
                     <button
                       onClick={handleSubmit}
-                      disabled={submitting || !code.trim() || isDisqualified}
+                      disabled={submitting || !code.trim() || isDisqualified || !isFullscreen}
                       className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-                      title={isDisqualified ? 'Cannot submit - you have been disqualified' : ''}
+                      title={
+                        !isFullscreen
+                          ? 'Enable fullscreen to submit'
+                          : isDisqualified
+                          ? 'Cannot submit - you have been disqualified'
+                          : ''
+                      }
                     >
                       {submitting ? 'Submitting...' : isDisqualified ? 'Disqualified' : 'Submit'}
                     </button>
@@ -901,6 +926,7 @@ const ContestRoom = () => {
                     wordWrap: 'on',
                     automaticLayout: true,
                     readOnly: submitting,
+                    contextmenu: false,
                   }}
                 />
               </div>
@@ -1185,7 +1211,13 @@ const ContestRoom = () => {
             )}
           </div>
         )}
-      </div>
+      {/* Fullscreen Modal */}
+      <FullscreenPromptModal
+        isOpen={showFullscreenModal}
+        onEnterFullscreen={() => setShowFullscreenModal(false)}
+        onClose={() => setShowFullscreenModal(false)}
+      />
+    </div>
     </div>
   );
 };

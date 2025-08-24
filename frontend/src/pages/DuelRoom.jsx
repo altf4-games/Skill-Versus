@@ -5,6 +5,7 @@ import { useUserContext } from '@/contexts/UserContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { apiClient } from '@/lib/api';
 import { Editor } from '@monaco-editor/react';
+import FullscreenPromptModal from '@/components/FullscreenPromptModal';
 import TypingInterface from '@/components/TypingInterface';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -324,7 +325,8 @@ export default function DuelRoom() {
     hasFocus,
     violations,
     violationCount,
-    isFullscreenSupported
+    isFullscreenSupported,
+    enterFullscreen
   } = useAntiCheat({
     isActive: antiCheatActive,
     onViolation: handleAntiCheatViolation,
@@ -333,6 +335,22 @@ export default function DuelRoom() {
     enableCopyPastePrevention: true,
     enableFocusDetection: true
   });
+
+  // Fullscreen modal state
+  const [showFullscreenModal, setShowFullscreenModal] = useState(false);
+
+  // Show modal if duel is active, coding duel, fullscreen required, but not in fullscreen
+  useEffect(() => {
+    if (
+      antiCheatActive &&
+      isFullscreenSupported &&
+      !isFullscreen
+    ) {
+      setShowFullscreenModal(true);
+    } else {
+      setShowFullscreenModal(false);
+    }
+  }, [antiCheatActive, isFullscreen, isFullscreenSupported]);
 
   const handleToggleReady = () => {
     if (socket && roomCode) {
@@ -865,7 +883,8 @@ export default function DuelRoom() {
                           lineNumbers: 'on',
                           wordWrap: 'on',
                           automaticLayout: true,
-                          readOnly: hasCorrectSubmission
+                          readOnly: hasCorrectSubmission,
+                          contextmenu: false,
                         }}
                       />
                     </div>
@@ -875,8 +894,9 @@ export default function DuelRoom() {
                       <div className="flex space-x-2">
                         <Button
                           onClick={runCode}
-                          disabled={isRunning || !code.trim()}
+                          disabled={isRunning || !code.trim() || !isFullscreen}
                           variant="outline"
+                          title={!isFullscreen ? 'Enable fullscreen to run code' : ''}
                         >
                           <Play className="h-4 w-4 mr-2" />
                           {isRunning ? 'Running...' : 'Run'}
@@ -884,7 +904,8 @@ export default function DuelRoom() {
                         
                         <Button
                           onClick={submitCode}
-                          disabled={isSubmitting || hasCorrectSubmission || !code.trim()}
+                          disabled={isSubmitting || hasCorrectSubmission || !code.trim() || !isFullscreen}
+                          title={!isFullscreen ? 'Enable fullscreen to submit' : ''}
                         >
                           <Send className="h-4 w-4 mr-2" />
                           {isSubmitting ? 'Submitting...' : hasCorrectSubmission ? 'Solved!' : 'Submit'}
@@ -1199,7 +1220,13 @@ export default function DuelRoom() {
         {/* End of coding duel interface */}
           </>
         )}
-      </div>
+      {/* Fullscreen Modal */}
+      <FullscreenPromptModal
+        isOpen={showFullscreenModal}
+        onEnterFullscreen={() => setShowFullscreenModal(false)}
+        onClose={() => setShowFullscreenModal(false)}
+      />
+    </div>
     </div>
   );
 }
