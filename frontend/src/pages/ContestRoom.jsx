@@ -114,7 +114,8 @@ const ContestRoom = () => {
     hasFocus,
     violations,
     violationCount,
-    isFullscreenSupported
+    isFullscreenSupported,
+    enterFullscreen
   } = useAntiCheat({
     isActive: antiCheatActive,
     onViolation: handleAntiCheatViolation,
@@ -297,6 +298,10 @@ const ContestRoom = () => {
         setProblems(data.problems);
         if (data.problems.length > 0) {
           setCode(data.problems[0].functionSignature?.javascript || '');
+        }
+        // Trigger fullscreen if contest just started and user is registered
+        if (contestStatus === 'active' && isRegistered && isFullscreenSupported) {
+          enterFullscreen();
         }
       } else {
         console.error('Failed to fetch problems:', data.error);
