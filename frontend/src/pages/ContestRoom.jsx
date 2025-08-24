@@ -299,10 +299,8 @@ const ContestRoom = () => {
         if (data.problems.length > 0) {
           setCode(data.problems[0].functionSignature?.javascript || '');
         }
-        // Trigger fullscreen if contest just started and user is registered
-        if (contestStatus === 'active' && isRegistered && isFullscreenSupported) {
-          enterFullscreen();
-        }
+        // Always trigger fullscreen when problems are set (contest is active and user is registered)
+        enterFullscreen();
       } else {
         console.error('Failed to fetch problems:', data.error);
       }
