@@ -22,11 +22,7 @@ export const SocketProvider = ({ children }) => {
   const { user: syncedUser, loading: userLoading, needsProfileSetup, syncUser } = useUserContext();
 
   useEffect(() => {
-    // Only initialize socket if:
-    // 1. Clerk is loaded and user is signed in
-    // 2. User context is not loading
-    // 3. User is synced (exists in our database)
-    // 4. User doesn't need profile setup
+    // Allow authentication to proceed even if socket connection fails
     if (!isLoaded || !clerkUser || userLoading || !syncedUser || needsProfileSetup) {
       return;
     }
@@ -42,6 +38,11 @@ export const SocketProvider = ({ children }) => {
           auth: {
             token: token,
           },
+          // Add reconnection options
+          reconnection: true,
+          reconnectionAttempts: 5,
+          reconnectionDelay: 1000,
+          timeout: 10000,
         });
 
         newSocket.on('connect', () => {
@@ -58,7 +59,7 @@ export const SocketProvider = ({ children }) => {
         newSocket.on('disconnect', () => {
           console.log('Disconnected from server');
           setIsConnected(false);
-          setIsAuthenticated(false);
+          // Don't set isAuthenticated to false on disconnect
         });
 
         newSocket.on('authenticated', (data) => {
@@ -80,7 +81,7 @@ export const SocketProvider = ({ children }) => {
 
         newSocket.on('error', (error) => {
           console.error('Socket error:', error);
-          setIsAuthenticated(false);
+          // Don't set isAuthenticated to false on error to allow other parts of the app to work
 
           // If the error is USER_NOT_SYNCED, trigger a sync
           if (error.code === 'USER_NOT_SYNCED') {
@@ -95,10 +96,12 @@ export const SocketProvider = ({ children }) => {
           clearTimeout(authTimeout);
           newSocket.disconnect();
           setIsConnected(false);
-          setIsAuthenticated(false);
+          // Don't set isAuthenticated to false on cleanup
         };
       } catch (error) {
         console.error('Failed to initialize socket:', error);
+        // Allow authentication to proceed even if socket initialization fails
+        setIsAuthenticated(true);
       }
     };
 

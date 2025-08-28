@@ -147,7 +147,7 @@ class SocketManager {
       // Authentication
       socket.on("authenticate", async (data) => {
         try {
-          const { clerkUserId, userId } = data;
+          const { clerkUserId, userId, token } = data; // Include token for fallback
           const clerkId = clerkUserId || userId; // Support both property names
 
           if (!clerkId) {
