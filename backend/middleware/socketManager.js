@@ -20,7 +20,9 @@ async function saveDuelHistory(room, completionReason) {
   try {
     // Only save 1v1 duels that have a winner
     if (!room.winner || room.participants.length !== 2) {
-      console.log(`Skipping duel history save - no winner or not 1v1: ${room.roomCode}`);
+      console.log(
+        `Skipping duel history save - no winner or not 1v1: ${room.roomCode}`
+      );
       return;
     }
 
@@ -30,26 +32,36 @@ async function saveDuelHistory(room, completionReason) {
     const duelHistoryData = {
       duelType: room.duelType,
       roomCode: room.roomCode,
-      participants: room.participants.map(participant => ({
+      participants: room.participants.map((participant) => ({
         userId: participant.userId, // MongoDB ObjectId as string
         username: participant.username,
         isWinner: participant.userId.toString() === room.winner.toString(),
-        submissionResult: participant.submissionResult ? {
-          passedCount: participant.submissionResult.passedCount,
-          totalCount: participant.submissionResult.totalCount,
-          submissionTime: participant.submissionTime,
-        } : undefined,
-        typingStats: participant.typingProgress ? {
-          wpm: participant.typingProgress.wpm,
-          accuracy: participant.typingProgress.accuracy,
-          finishTime: participant.typingProgress.finishTime,
-          totalTime: participant.typingProgress.finishTime ?
-            Math.floor((participant.typingProgress.finishTime - room.startTime) / 1000) : undefined,
-        } : undefined,
+        submissionResult: participant.submissionResult
+          ? {
+              passedCount: participant.submissionResult.passedCount,
+              totalCount: participant.submissionResult.totalCount,
+              submissionTime: participant.submissionTime,
+            }
+          : undefined,
+        typingStats: participant.typingProgress
+          ? {
+              wpm: participant.typingProgress.wpm,
+              accuracy: participant.typingProgress.accuracy,
+              finishTime: participant.typingProgress.finishTime,
+              totalTime: participant.typingProgress.finishTime
+                ? Math.floor(
+                    (participant.typingProgress.finishTime - room.startTime) /
+                      1000
+                  )
+                : undefined,
+            }
+          : undefined,
       })),
       winner: {
         userId: room.winner, // MongoDB ObjectId as string
-        username: room.participants.find(p => p.userId.toString() === room.winner.toString())?.username,
+        username: room.participants.find(
+          (p) => p.userId.toString() === room.winner.toString()
+        )?.username,
       },
       completionReason,
       startTime: room.startTime,
@@ -83,15 +95,20 @@ async function saveDuelHistory(room, completionReason) {
     const duelHistory = new DuelHistory(duelHistoryData);
     await duelHistory.save();
 
-    console.log(`Duel history saved for room: ${room.roomCode}, winner: ${duelHistoryData.winner.username}`);
+    console.log(
+      `Duel history saved for room: ${room.roomCode}, winner: ${duelHistoryData.winner.username}`
+    );
   } catch (error) {
-    console.error(`Error saving duel history for room ${room.roomCode}:`, error.message);
-    console.error('Room details:', {
+    console.error(
+      `Error saving duel history for room ${room.roomCode}:`,
+      error.message
+    );
+    console.error("Room details:", {
       duelType: room.duelType,
       winner: room.winner,
       participantCount: room.participants?.length,
       hasproblem: !!room.problem,
-      hasTypingContent: !!room.typingContent
+      hasTypingContent: !!room.typingContent,
     });
   }
 }
@@ -147,7 +164,7 @@ class SocketManager {
       // Authentication
       socket.on("authenticate", async (data) => {
         try {
-          const { clerkUserId, userId, token } = data; // Include token for fallback
+          const { clerkUserId, userId } = data;
           const clerkId = clerkUserId || userId; // Support both property names
 
           if (!clerkId) {
@@ -164,7 +181,7 @@ class SocketManager {
             );
             socket.emit("error", {
               message: "User not found. Please sync your account first.",
-              code: "USER_NOT_SYNCED"
+              code: "USER_NOT_SYNCED",
             });
             return;
           }
@@ -201,8 +218,8 @@ class SocketManager {
             isActive: true,
             $or: [
               { isContestOnly: { $exists: false } },
-              { isContestOnly: false }
-            ]
+              { isContestOnly: false },
+            ],
           });
           if (problemCount === 0) {
             socket.emit("error", { message: "No problems available" });
@@ -214,8 +231,8 @@ class SocketManager {
             isActive: true,
             $or: [
               { isContestOnly: { $exists: false } },
-              { isContestOnly: false }
-            ]
+              { isContestOnly: false },
+            ],
           }).skip(randomSkip);
 
           // Generate unique room code
@@ -484,12 +501,13 @@ class SocketManager {
                 // Only add problems for coding duels
                 if (room.duelType === "coding") {
                   // Get a random problem for the duel
-                  const Problem = (await import("../models/Problem.js")).default;
+                  const Problem = (await import("../models/Problem.js"))
+                    .default;
                   const problems = await Problem.find({
                     $or: [
                       { isContestOnly: { $exists: false } },
-                      { isContestOnly: false }
-                    ]
+                      { isContestOnly: false },
+                    ],
                   });
 
                   if (problems.length === 0) {
@@ -513,14 +531,10 @@ class SocketManager {
                     .to(roomCode)
                     .emit("duel-started", { room, problem: randomProblem });
                 } else if (room.duelType === "typing") {
-                  console.log(
-                    `Typing duel started in room: ${roomCode}`
-                  );
+                  console.log(`Typing duel started in room: ${roomCode}`);
 
                   // Notify all participants that the duel has started
-                  this.io
-                    .to(roomCode)
-                    .emit("duel-started", { room });
+                  this.io.to(roomCode).emit("duel-started", { room });
                 }
               } catch (error) {
                 console.error("Error auto-starting duel:", error);
@@ -1116,7 +1130,9 @@ class SocketManager {
           });
 
           // Count violations for this user
-          const userViolations = room.antiCheatViolations.filter(v => v.userId === socket.userId);
+          const userViolations = room.antiCheatViolations.filter(
+            (v) => v.userId === socket.userId
+          );
           const userViolationCount = userViolations.length;
 
           // For serious violations (focus loss, tab switch, fullscreen exit), end the duel
@@ -1134,13 +1150,17 @@ class SocketManager {
           ];
 
           // Check if this is a serious violation or if minor violations have accumulated
-          const shouldDisqualify = seriousViolations.includes(violation.type) ||
-                                  (minorViolations.includes(violation.type) && userViolationCount >= 5);
+          const shouldDisqualify =
+            seriousViolations.includes(violation.type) ||
+            (minorViolations.includes(violation.type) &&
+              userViolationCount >= 5);
 
           if (shouldDisqualify) {
             // Mark the violating participant as disqualified
             participant.disqualified = true;
-            participant.disqualificationReason = seriousViolations.includes(violation.type)
+            participant.disqualificationReason = seriousViolations.includes(
+              violation.type
+            )
               ? violation.message
               : `Multiple anti-cheat violations (${userViolationCount} total)`;
 
@@ -1195,7 +1215,7 @@ class SocketManager {
                 socket.emit("anti-cheat-warning", {
                   message: `Warning: ${remainingViolations} more violations will result in disqualification`,
                   violationCount: userViolationCount,
-                  maxViolations: 5
+                  maxViolations: 5,
                 });
               }
             }
