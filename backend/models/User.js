@@ -61,6 +61,18 @@ const userSchema = new mongoose.Schema(
         enum: ["Iron", "Bronze", "Silver", "Gold", "Platinum"],
         default: "Iron",
       },
+      streak: {
+        type: Number,
+        default: 0,
+      },
+      longestStreak: {
+        type: Number,
+        default: 0,
+      },
+      lastActivityDate: {
+        type: Date,
+        default: null,
+      },
     },
     bio: {
       type: String,
@@ -123,6 +135,21 @@ const userSchema = new mongoose.Schema(
 userSchema.index({ "stats.xp": -1 });
 userSchema.index({ "stats.rank": 1 });
 
+// Pre-save middleware to ensure streak fields exist for backward compatibility
+userSchema.pre('save', function(next) {
+  // Initialize streak fields if they don't exist
+  if (this.stats.streak === undefined) {
+    this.stats.streak = 0;
+  }
+  if (this.stats.longestStreak === undefined) {
+    this.stats.longestStreak = 0;
+  }
+  if (this.stats.lastActivityDate === undefined) {
+    this.stats.lastActivityDate = null;
+  }
+  next();
+});
+
 // Virtual for win rate
 userSchema.virtual("winRate").get(function () {
   if (this.stats.totalDuels === 0) return 0;
@@ -143,6 +170,49 @@ userSchema.methods.updateRank = function () {
 userSchema.methods.addXP = function (points) {
   this.stats.xp += points;
   this.updateRank();
+};
+
+// Method to update daily streak
+userSchema.methods.updateStreak = function () {
+  const now = new Date();
+  const lastActivity = this.stats.lastActivityDate;
+
+  // Set to start of day in UTC for consistent comparison
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  if (!lastActivity) {
+    // First activity ever
+    this.stats.streak = 1;
+    this.stats.longestStreak = 1;
+    this.stats.lastActivityDate = now;
+    return;
+  }
+
+  const lastActivityStart = new Date(
+    lastActivity.getFullYear(),
+    lastActivity.getMonth(),
+    lastActivity.getDate()
+  );
+
+  const daysDifference = Math.floor(
+    (todayStart - lastActivityStart) / (1000 * 60 * 60 * 24)
+  );
+
+  if (daysDifference === 0) {
+    // Same day - no change to streak
+    return;
+  } else if (daysDifference === 1) {
+    // Consecutive day - increment streak
+    this.stats.streak += 1;
+    if (this.stats.streak > this.stats.longestStreak) {
+      this.stats.longestStreak = this.stats.streak;
+    }
+  } else {
+    // Streak broken - reset to 1
+    this.stats.streak = 1;
+  }
+
+  this.stats.lastActivityDate = now;
 };
 
 // Friends methods

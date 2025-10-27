@@ -2,6 +2,35 @@ import User from "../models/User.js";
 import DuelHistory from "../models/DuelHistory.js";
 import { clerkClient, getAuth } from "@clerk/express";
 
+// Helper function to check streak on login (passive check - doesn't increment)
+function checkStreakOnLogin(user) {
+  const now = new Date();
+  const lastActivity = user.stats.lastActivityDate;
+
+  if (!lastActivity) {
+    // First time user, no streak yet
+    return;
+  }
+
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const lastActivityStart = new Date(
+    lastActivity.getFullYear(),
+    lastActivity.getMonth(),
+    lastActivity.getDate()
+  );
+
+  const daysDifference = Math.floor(
+    (todayStart - lastActivityStart) / (1000 * 60 * 60 * 24)
+  );
+
+  // If more than 1 day has passed since last activity, break the streak
+  if (daysDifference > 1) {
+    user.stats.streak = 0;
+  }
+  // If it's been exactly 1 day or same day, don't change streak
+  // Streak only increments when user completes an activity (duel, contest, etc.)
+}
+
 // Get or create user from Clerk data
 export const syncUser = async (req, res) => {
   try {
@@ -47,6 +76,9 @@ export const syncUser = async (req, res) => {
       user.lastName = clerkUser.lastName || user.lastName;
       user.profileImage = clerkUser.imageUrl || user.profileImage;
       user.lastActive = new Date();
+
+      // Check and update streak on login
+      checkStreakOnLogin(user);
 
       await user.save();
     }

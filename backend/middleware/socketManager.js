@@ -133,9 +133,12 @@ async function updateUserStats(userId, isWinner) {
       user.addXP(calculateXPGain(false)); // Loser gets participation XP
     }
 
+    // Update daily streak
+    user.updateStreak();
+
     await user.save();
     console.log(
-      `Updated stats for ${user.username}: ${user.stats.wins}W/${user.stats.losses}L, ${user.stats.xp} XP, ${user.stats.rank}`
+      `Updated stats for ${user.username}: ${user.stats.wins}W/${user.stats.losses}L, ${user.stats.xp} XP, ${user.stats.rank}, ${user.stats.streak} day streak`
     );
 
     return user;

@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator'
 import { Progress } from '@/components/ui/progress'
 import { useUserContext } from '@/contexts/UserContext'
 import { Link } from 'react-router-dom'
-import { User, Edit3, Save, X, Trophy, Target, Zap, Star, TrendingUp, Sword, Award, Medal, Users, UserPlus, UserMinus } from 'lucide-react'
+import { User, Edit3, Save, X, Trophy, Target, Zap, Star, TrendingUp, Sword, Award, Medal, Users, UserPlus, UserMinus, Flame } from 'lucide-react'
 import { apiClient } from '@/lib/api'
 import { DuelHistory } from '@/components/DuelHistory'
 
@@ -476,6 +476,38 @@ export function ProfilePage() {
                   {user.stats?.rank || 'Iron'}
                 </Badge>
                 <p className="text-3xl font-bold text-primary">{(user.stats?.xp || 0).toLocaleString()} XP</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Daily Streak */}
+          <Card className="bg-gradient-to-br from-orange-500/5 to-red-600/10">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Flame className="h-5 w-5 text-orange-500" />
+                <span>Daily Streak</span>
+              </CardTitle>
+              <CardDescription>Keep playing to maintain your streak!</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="text-center">
+                <div className="flex items-center justify-center space-x-2 mb-3">
+                  <Flame className="h-10 w-10 text-orange-500" />
+                  <p className="text-4xl font-bold text-orange-500">{user.stats?.streak || 0}</p>
+                </div>
+                <p className="text-muted-foreground mb-4">
+                  {user.stats?.streak === 0 ? "Complete a duel to start your streak!" : 
+                   user.stats?.streak === 1 ? "Current Streak - 1 Day" : 
+                   `Current Streak - ${user.stats?.streak} Days`}
+                </p>
+                <Separator className="my-3" />
+                <div className="flex items-center justify-between pt-2">
+                  <span className="text-sm text-muted-foreground">Longest Streak</span>
+                  <Badge variant="outline" className="flex items-center space-x-1">
+                    <Trophy className="h-3 w-3 text-yellow-500" />
+                    <span>{user.stats?.longestStreak || 0} days</span>
+                  </Badge>
+                </div>
               </div>
             </CardContent>
           </Card>
