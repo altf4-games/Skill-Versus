@@ -31,8 +31,7 @@ _Live and upcoming contests_
 
 ![Leaderboard](assets/Screenshot%202025-10-27%20173615.png)
 _Global rankings and statistics_
-
-![Profile](assets/Screenshot%202025-10-27%20173621.png)
+![Profile](assets/Screenshot%202025-10-27%20174739.png)
 _User profile and progress tracking_
 
 ## 🚀 Tech Stack
