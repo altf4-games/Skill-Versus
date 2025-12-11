@@ -172,9 +172,24 @@ export default function DuelRoom() {
         console.error('Failed to refresh user data after duel:', error);
       }
 
-      // Redirect to /duels after 5 seconds
+      // Cleanup socket listeners and redirect to dashboard after 5 seconds
       setTimeout(() => {
-        navigate('/duels');
+        if (socket) {
+          // Remove all duel-related event listeners
+          socket.off('participant-joined');
+          socket.off('user-ready-changed');
+          socket.off('duel-started');
+          socket.off('code-submitted');
+          socket.off('duel-ended');
+          socket.off('duel-finished');
+          socket.off('typing-duel-finished');
+          socket.off('participant-typing-progress');
+          socket.off('participant-typing-restart');
+          socket.off('submission-received');
+          socket.off('chat-message');
+          socket.off('error');
+        }
+        navigate('/dashboard');
       }, 5000);
     };
 
@@ -194,9 +209,24 @@ export default function DuelRoom() {
         console.error('Failed to refresh user data after duel:', error);
       }
 
-      // Redirect to /duels after 5 seconds
+      // Cleanup socket listeners and redirect to dashboard after 5 seconds
       setTimeout(() => {
-        navigate('/duels');
+        if (socket) {
+          // Remove all duel-related event listeners
+          socket.off('participant-joined');
+          socket.off('user-ready-changed');
+          socket.off('duel-started');
+          socket.off('code-submitted');
+          socket.off('duel-ended');
+          socket.off('duel-finished');
+          socket.off('typing-duel-finished');
+          socket.off('participant-typing-progress');
+          socket.off('participant-typing-restart');
+          socket.off('submission-received');
+          socket.off('chat-message');
+          socket.off('error');
+        }
+        navigate('/dashboard');
       }, 5000);
     };
 
