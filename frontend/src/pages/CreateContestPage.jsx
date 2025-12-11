@@ -115,8 +115,10 @@ const CreateContestPage = () => {
     const utcISOString = datetimeLocalISTToUTC(istDateTime);
     const utcDate = new Date(utcISOString);
     
-    // Validate start time is in the future (compare in UTC)
-    if (utcDate <= new Date()) {
+    // Validate start time is in the future (compare IST input against IST current time)
+    const istInputDate = new Date(istDateTime);
+    const istNowDate = nowIST();
+    if (istInputDate <= istNowDate) {
       setError('Start time must be in the future');
       return;
     }
