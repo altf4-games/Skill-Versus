@@ -568,11 +568,11 @@ export default function DuelRoom() {
               )}
 
               <div className="flex justify-center space-x-4">
-                <Button onClick={() => navigate('/duels')} size="lg">
-                  New Duel
-                </Button>
-                <Button onClick={() => navigate('/dashboard')} variant="outline" size="lg">
+                <Button onClick={() => navigate('/dashboard')} size="lg">
                   Dashboard
+                </Button>
+                <Button onClick={() => navigate('/duels')} variant="outline" size="lg">
+                  New Duel
                 </Button>
               </div>
             </CardContent>
@@ -1217,12 +1217,8 @@ export default function DuelRoom() {
               </div>
 
               <div className="flex justify-center space-x-4 pt-4">
-                <Button onClick={() => navigate('/duels')}>
-                  Back to Duels
-                </Button>
-                <Button variant="outline" onClick={() => window.location.reload()}>
-                  New Duel
-                </Button>
+                <Button onClick={() => navigate('/dashboard')}>Dashboard</Button>
+                <Button variant="outline" onClick={() => navigate('/duels')}>New Duel</Button>
               </div>
             </CardContent>
           </Card>
