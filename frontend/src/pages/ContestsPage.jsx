@@ -69,7 +69,7 @@ const ContestsPage = () => {
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString();
+    return formatIST(dateString);
   };
 
   const formatDuration = (minutes) => {

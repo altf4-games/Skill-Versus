@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUserContext } from '../contexts/UserContext';
 import { SEO } from '../components/SEO';
 import { API_ENDPOINTS } from '../config/api';
+import { datetimeLocalISTToUTC, nowIST, utcToDatetimeLocalIST } from '../lib/timezone';
 
 const CreateContestPage = () => {
   const navigate = useNavigate();
@@ -103,9 +104,19 @@ const CreateContestPage = () => {
       return;
     }
 
-    // Validate start time
-    const startTime = new Date(formData.startTime);
-    if (startTime <= new Date()) {
+    // Convert IST datetime-local to UTC ISO string
+    const istDateTime = formData.startTime;
+    if (!istDateTime) {
+      setError('Please select a start time');
+      return;
+    }
+
+    // Convert IST to UTC
+    const utcISOString = datetimeLocalISTToUTC(istDateTime);
+    const utcDate = new Date(utcISOString);
+    
+    // Validate start time is in the future (compare in UTC)
+    if (utcDate <= new Date()) {
       setError('Start time must be in the future');
       return;
     }
@@ -122,6 +133,7 @@ const CreateContestPage = () => {
         },
         body: JSON.stringify({
           ...formData,
+          startTime: utcISOString, // Send UTC ISO string
           maxParticipants: formData.maxParticipants ? parseInt(formData.maxParticipants) : null,
           problems: selectedProblems,
         }),
@@ -145,11 +157,11 @@ const CreateContestPage = () => {
     }
   };
 
-  // Generate default start time (1 hour from now)
+  // Generate default start time (1 hour from now in IST)
   const getDefaultStartTime = () => {
-    const now = new Date();
-    now.setHours(now.getHours() + 1);
-    return now.toISOString().slice(0, 16);
+    const istNow = nowIST();
+    istNow.setHours(istNow.getHours() + 1);
+    return istNow.toISOString().slice(0, 16);
   };
 
   if (!user?.contestAdmin) {
@@ -211,7 +223,7 @@ const CreateContestPage = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
-                    Start Time *
+                    Start Time (IST) *
                   </label>
                   <input
                     type="datetime-local"
@@ -221,6 +233,9 @@ const CreateContestPage = () => {
                     required
                     className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-transparent"
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Enter time in Indian Standard Time (IST/UTC+5:30)
+                  </p>
                 </div>
 
                 <div>
