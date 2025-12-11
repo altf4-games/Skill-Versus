@@ -1149,7 +1149,7 @@ export default function DuelRoom() {
             <CardContent className="space-y-4">
               {duelResult.winner ? (
                 <div className="text-center">
-                  <p className="text-lg font-semibold text-green-600">
+                  <p className="text-lg font-semibold text-green-700 dark:text-green-600">
                     🎉 {duelResult.winner.username || 'Winner'} wins!
                   </p>
                   {room?.duelType === 'typing' && duelResult.stats && (
@@ -1160,7 +1160,7 @@ export default function DuelRoom() {
                 </div>
               ) : (
                 <div className="text-center">
-                  <p className="text-lg font-semibold text-yellow-600">
+                  <p className="text-lg font-semibold text-yellow-700 dark:text-yellow-600">
                     {room?.duelType === 'typing' ? "It's a tie! Both players finished simultaneously." : "It's a tie! Both players submitted working solutions."}
                   </p>
                 </div>
@@ -1169,11 +1169,11 @@ export default function DuelRoom() {
               <div className="space-y-2">
                 <h4 className="font-semibold">Final Results:</h4>
                 {duelResult.finalResults?.map((result, index) => (
-                  <div key={result.userId || index} className={`flex items-center justify-between p-3 border rounded-lg ${result.isWinner ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800' : ''}`}>
+                  <div key={result.userId || index} className={`flex items-center justify-between p-3 border rounded-lg ${result.isWinner ? 'bg-green-100 dark:bg-green-950 border-green-300 dark:border-green-800' : ''}`}>
                     <div className="flex items-center space-x-3">
                       <span className="font-medium">{result.username}</span>
                       {result.isWinner && (
-                        <Badge variant="default" className="bg-green-600">
+                        <Badge variant="default" className="bg-green-700 dark:bg-green-600 text-white">
                           Winner
                         </Badge>
                       )}

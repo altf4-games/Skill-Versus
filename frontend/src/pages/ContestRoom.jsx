@@ -679,7 +679,7 @@ const ContestRoom = () => {
 
         {/* Anti-cheat Warning */}
         {antiCheatWarning && (
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200 px-4 py-3 rounded-lg mb-6 flex items-center space-x-2">
+          <div className="bg-white dark:bg-yellow-900/20 border-2 border-yellow-600 dark:border-yellow-800 text-yellow-900 dark:text-yellow-200 px-4 py-3 rounded-lg mb-6 flex items-center space-x-2">
             <AlertTriangle className="h-5 w-5" />
             <span>{antiCheatWarning}</span>
           </div>
@@ -687,11 +687,11 @@ const ContestRoom = () => {
 
         {/* Disqualification Notice */}
         {isDisqualified && (
-          <div className="bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-800 dark:text-red-200 px-4 py-3 rounded-lg mb-6 flex items-center space-x-2">
-            <AlertTriangle className="h-5 w-5" />
+          <div className="bg-white dark:bg-red-900/30 border-2 border-red-600 dark:border-red-700 text-red-900 dark:text-red-200 px-4 py-3 rounded-lg mb-6 flex items-center space-x-2">
+            <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
             <div>
               <div className="font-semibold">Contest Disqualification</div>
-              <div className="text-sm">You have been disqualified from this contest due to anti-cheat violations. Your submissions will not be counted.</div>
+              <div className="text-sm text-red-800 dark:text-red-200">You have been disqualified from this contest due to anti-cheat violations. Your submissions will not be counted.</div>
             </div>
           </div>
         )}
@@ -767,8 +767,8 @@ const ContestRoom = () => {
                     {contestStatus === 'finished' && (
                       <div className="mb-6 bg-card border border-border rounded-lg p-6">
                         <div className="text-center">
-                          <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
+                          <div className="w-16 h-16 bg-green-200 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <CheckCircle className="w-8 h-8 text-green-700 dark:text-green-400" />
                           </div>
                           <h3 className="text-xl font-semibold text-foreground mb-2">
                             Contest Completed
@@ -1071,14 +1071,14 @@ const ContestRoom = () => {
                     </div>
                   )}
                   {contestStatus === 'finished' && (
-                    <div className="mt-2 p-3 bg-green-100 dark:bg-green-900/20 border border-green-300 dark:border-green-800 rounded-lg">
+                    <div className="mt-2 p-3 bg-white dark:bg-green-900/20 border-2 border-green-600 dark:border-green-800 rounded-lg">
                       <div className="flex items-center space-x-2">
                         <div className="w-2 h-2 bg-green-600 dark:bg-green-500 rounded-full"></div>
-                        <span className="text-sm font-medium text-green-900 dark:text-green-200">
+                        <span className="text-sm font-medium text-green-700 dark:text-green-200">
                           Contest Finished
                         </span>
                       </div>
-                      <p className="text-sm text-green-800 dark:text-green-300 mt-1">
+                      <p className="text-sm text-gray-700 dark:text-green-300 mt-1">
                         Final results are displayed below. CP ratings have been updated.
                       </p>
                       {contest?.allowVirtualParticipation && !isVirtual && (
@@ -1089,7 +1089,7 @@ const ContestRoom = () => {
                           >
                             Start Virtual Contest
                           </Button>
-                          <p className="text-xs text-green-700 dark:text-green-400 mt-1">
+                          <p className="text-xs text-gray-600 dark:text-green-400 mt-1">
                             Practice with the same problems and time limit
                           </p>
                         </div>
