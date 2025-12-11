@@ -171,6 +171,11 @@ export default function DuelRoom() {
       } catch (error) {
         console.error('Failed to refresh user data after duel:', error);
       }
+
+      // Redirect to /duels after 5 seconds
+      setTimeout(() => {
+        navigate('/duels');
+      }, 5000);
     };
 
     const handleTypingDuelFinished = async (data) => {
@@ -188,6 +193,11 @@ export default function DuelRoom() {
       } catch (error) {
         console.error('Failed to refresh user data after duel:', error);
       }
+
+      // Redirect to /duels after 5 seconds
+      setTimeout(() => {
+        navigate('/duels');
+      }, 5000);
     };
 
     const handleParticipantTypingProgress = (data) => {
@@ -511,13 +521,13 @@ export default function DuelRoom() {
             <CardContent>
               <div className="mb-6">
                 {isWinner ? (
-                  <div className="text-green-600">
+                  <div className="text-green-700 dark:text-green-600">
                     <Trophy className="h-16 w-16 mx-auto mb-4" />
                     <h1 className="text-4xl font-bold mb-2">Victory! 🎉</h1>
                     <p className="text-xl text-muted-foreground">Congratulations! You won the duel!</p>
                   </div>
                 ) : (
-                  <div className="text-red-600">
+                  <div className="text-red-700 dark:text-red-600">
                     <X className="h-16 w-16 mx-auto mb-4" />
                     <h1 className="text-4xl font-bold mb-2">Defeat 😔</h1>
                     <p className="text-xl text-muted-foreground">{winnerName} won this duel!</p>

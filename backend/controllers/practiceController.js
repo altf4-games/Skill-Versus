@@ -63,11 +63,17 @@ export const getLanguages = async (req, res) => {
     const languages = await makeJudge0Request("/languages");
 
     // Filter and format languages for practice mode
-    // Filter out some languages that are not suitable for practice
-    const excludedLanguages = [44, 43, 89]; // Executable, Plain Text, Multi-file program
+    // Only allow Python, C, C++, Java, JavaScript (all versions)
+    const allowedLanguages = [
+      71, 70, // Python 3, Python 2
+      62, 91, // Java
+      54, 53, 52, 76, 75, // C++ (GCC and Clang versions)
+      50, 49, 48, // C (GCC versions)
+      63, 93  // JavaScript (Node.js versions)
+    ];
 
     const practiceLanguages = languages
-      .filter((lang) => !excludedLanguages.includes(lang.id))
+      .filter((lang) => allowedLanguages.includes(lang.id))
       .map((lang) => ({
         id: lang.id,
         name: lang.name,
