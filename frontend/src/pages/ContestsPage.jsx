@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Trophy, Calendar, Clock, Users, Plus, Filter } from 'lucide-react';
+import { formatIST } from '../lib/timezone';
 
 const ContestsPage = () => {
   const { user } = useUserContext();
