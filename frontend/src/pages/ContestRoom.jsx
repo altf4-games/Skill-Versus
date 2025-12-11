@@ -1178,7 +1178,7 @@ const ContestRoom = () => {
                                 {submission.problemId?.title || 'Problem'}
                               </div>
                               <div className="text-sm text-muted-foreground mt-1">
-                                {new Date(submission.submissionTime).toLocaleString()}
+                                {formatIST(submission.submissionTime)}
                               </div>
                             </div>
                             <div className="text-right">
