@@ -9,7 +9,6 @@ import FullscreenPromptModal from '../components/FullscreenPromptModal';
 import { SEO } from '../components/SEO';
 import { API_ENDPOINTS } from '../config/api';
 import { apiClient } from '../lib/api';
-import { formatIST } from '../lib/timezone';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -1178,7 +1177,7 @@ const ContestRoom = () => {
                                 {submission.problemId?.title || 'Problem'}
                               </div>
                               <div className="text-sm text-muted-foreground mt-1">
-                                {formatIST(submission.submissionTime)}
+                                {new Date(submission.submissionTime).toLocaleString()}
                               </div>
                             </div>
                             <div className="text-right">

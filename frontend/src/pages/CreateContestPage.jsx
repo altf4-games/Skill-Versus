@@ -223,7 +223,7 @@ const CreateContestPage = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
-                    Start Time (IST) *
+                    Start Time *
                   </label>
                   <input
                     type="datetime-local"
@@ -233,9 +233,6 @@ const CreateContestPage = () => {
                     required
                     className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-transparent"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Enter time in Indian Standard Time (IST/UTC+5:30)
-                  </p>
                 </div>
 
                 <div>
