@@ -111,14 +111,13 @@ const CreateContestPage = () => {
       return;
     }
 
-    // Convert IST to UTC
+    // Convert IST to UTC for backend
     const utcISOString = datetimeLocalISTToUTC(istDateTime);
     const utcDate = new Date(utcISOString);
     
-    // Validate start time is in the future (compare IST input against IST current time)
-    const istInputDate = new Date(istDateTime);
-    const istNowDate = nowIST();
-    if (istInputDate <= istNowDate) {
+    // Validate start time is in the future (compare in UTC)
+    const nowUTC = new Date();
+    if (utcDate.getTime() <= nowUTC.getTime()) {
       setError('Start time must be in the future');
       return;
     }
