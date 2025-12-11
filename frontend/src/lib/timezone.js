@@ -66,9 +66,18 @@ export const nowIST = () => {
  */
 export const datetimeLocalISTToUTC = (datetimeLocal) => {
   // datetime-local gives us YYYY-MM-DDTHH:mm
-  // We treat this as IST and convert to UTC
-  const istDate = new Date(datetimeLocal);
-  const utcDate = istToUTC(istDate);
+  // Parse it as IST by manually constructing the date
+  // Format: "2025-12-11T13:00" -> treat as IST, convert to UTC
+  
+  // Parse the datetime string components
+  const [datePart, timePart] = datetimeLocal.split('T');
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hours, minutes] = timePart.split(':').map(Number);
+  
+  // Create UTC date by treating input as IST and subtracting offset
+  // IST is UTC+5:30, so to get UTC, we subtract 5:30
+  const utcDate = new Date(Date.UTC(year, month - 1, day, hours, minutes) - IST_OFFSET_MS);
+  
   return utcDate.toISOString();
 };
 
