@@ -765,15 +765,15 @@ const ContestRoom = () => {
                   <div>
                     {/* Contest Finished Message */}
                     {contestStatus === 'finished' && (
-                      <div className="mb-6 bg-card border border-border rounded-lg p-6">
+                      <div className="mb-6 bg-gray-800 dark:bg-card border-2 border-green-600 dark:border-border rounded-lg p-6">
                         <div className="text-center">
-                          <div className="w-16 h-16 bg-green-200 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <CheckCircle className="w-8 h-8 text-green-700 dark:text-green-400" />
+                          <div className="w-16 h-16 bg-green-700 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <CheckCircle className="w-8 h-8 text-green-300 dark:text-green-400" />
                           </div>
-                          <h3 className="text-xl font-semibold text-foreground mb-2">
+                          <h3 className="text-xl font-semibold text-green-200 dark:text-foreground mb-2">
                             Contest Completed
                           </h3>
-                          <p className="text-muted-foreground mb-4">
+                          <p className="text-green-300 dark:text-muted-foreground mb-4">
                             This contest has ended. View the final results below or start a virtual contest to practice.
                           </p>
                           {contest?.allowVirtualParticipation && !isVirtual && (
@@ -1071,14 +1071,29 @@ const ContestRoom = () => {
                     </div>
                   )}
                   {contestStatus === 'finished' && (
-                    <div className="mt-2 p-3 bg-white dark:bg-green-900/20 border-2 border-green-600 dark:border-green-800 rounded-lg">
+                    <div 
+                      className="mt-2 p-3 border-2 rounded-lg"
+                      style={{
+                        backgroundColor: theme === 'dark' ? 'rgb(20, 83, 45, 0.2)' : '#1f2937',
+                        borderColor: theme === 'dark' ? '#166534' : '#22c55e',
+                      }}
+                    >
                       <div className="flex items-center space-x-2">
-                        <div className="w-2 h-2 bg-green-600 dark:bg-green-500 rounded-full"></div>
-                        <span className="text-sm font-medium text-green-700 dark:text-green-200">
+                        <div 
+                          className="w-2 h-2 rounded-full"
+                          style={{ backgroundColor: '#4ade80' }}
+                        ></div>
+                        <span 
+                          className="text-sm font-medium"
+                          style={{ color: theme === 'dark' ? '#bbf7d0' : '#d1fae5' }}
+                        >
                           Contest Finished
                         </span>
                       </div>
-                      <p className="text-sm text-gray-700 dark:text-green-300 mt-1">
+                      <p 
+                        className="text-sm mt-1"
+                        style={{ color: theme === 'dark' ? '#86efac' : '#a7f3d0' }}
+                      >
                         Final results are displayed below. CP ratings have been updated.
                       </p>
                       {contest?.allowVirtualParticipation && !isVirtual && (
@@ -1089,7 +1104,10 @@ const ContestRoom = () => {
                           >
                             Start Virtual Contest
                           </Button>
-                          <p className="text-xs text-gray-600 dark:text-green-400 mt-1">
+                          <p 
+                            className="text-xs mt-1"
+                            style={{ color: theme === 'dark' ? '#4ade80' : '#86efac' }}
+                          >
                             Practice with the same problems and time limit
                           </p>
                         </div>

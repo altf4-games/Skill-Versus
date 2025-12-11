@@ -11,21 +11,23 @@ export const getAllContests = async (req, res) => {
   try {
     const { status, page = 1, limit = 10 } = req.query;
     const skip = (page - 1) * limit;
-    
+
     let query = { isActive: true };
     if (status && ["upcoming", "active", "finished"].includes(status)) {
       query.status = status;
     }
-    
+
     const contests = await Contest.find(query)
-      .select("title description startTime endTime duration status totalParticipants createdByUsername")
+      .select(
+        "title description startTime endTime duration status totalParticipants createdByUsername"
+      )
       .sort({ startTime: -1 })
       .skip(skip)
       .limit(parseInt(limit))
       .lean();
-    
+
     const total = await Contest.countDocuments(query);
-    
+
     res.json({
       contests,
       pagination: {
@@ -48,7 +50,10 @@ export const getContestDetails = async (req, res) => {
     const clerkUserId = req.auth?.userId;
 
     const contest = await Contest.findById(contestId)
-      .populate("problems.problemId", "title description difficulty examples constraints")
+      .populate(
+        "problems.problemId",
+        "title description difficulty examples constraints"
+      )
       .lean();
 
     if (!contest || !contest.isActive) {
@@ -71,18 +76,18 @@ export const getContestDetails = async (req, res) => {
         canRegister = !isRegistered && new Date() < contest.startTime;
       }
     }
-    
+
     // Hide problem details if contest hasn't started and user isn't registered
     if (new Date() < contest.startTime && !isRegistered) {
-      contest.problems = contest.problems.map(p => ({
+      contest.problems = contest.problems.map((p) => ({
         ...p,
         problemId: {
           title: p.problemId.title,
           difficulty: p.problemId.difficulty,
-        }
+        },
       }));
     }
-    
+
     // Calculate real-time status based on server time
     const now = new Date();
     const contestStart = new Date(contest.startTime);
@@ -90,11 +95,11 @@ export const getContestDetails = async (req, res) => {
 
     let currentStatus;
     if (now < contestStart) {
-      currentStatus = 'upcoming';
+      currentStatus = "upcoming";
     } else if (now <= contestEnd) {
-      currentStatus = 'active';
+      currentStatus = "active";
     } else {
-      currentStatus = 'finished';
+      currentStatus = "finished";
     }
 
     res.json({
@@ -116,13 +121,15 @@ export const getContestDetails = async (req, res) => {
 export const createContest = async (req, res) => {
   try {
     const userId = req.auth.userId;
-    
+
     // Check if user is contest admin
     const user = await User.findOne({ clerkId: userId });
     if (!user || !user.contestAdmin) {
-      return res.status(403).json({ error: "Access denied. Contest admin required." });
+      return res
+        .status(403)
+        .json({ error: "Access denied. Contest admin required." });
     }
-    
+
     const {
       title,
       description,
@@ -135,27 +142,31 @@ export const createContest = async (req, res) => {
       penaltyPerWrongSubmission,
       maxSubmissionsPerProblem,
     } = req.body;
-    
+
     // Validate start time
     const start = new Date(startTime);
     if (start <= new Date()) {
-      return res.status(400).json({ error: "Start time must be in the future" });
+      return res
+        .status(400)
+        .json({ error: "Start time must be in the future" });
     }
-    
+
     // Calculate end time
     const end = new Date(start.getTime() + duration * 60 * 1000);
-    
+
     // Validate problems exist
-    const problemIds = problems.map(p => p.problemId);
+    const problemIds = problems.map((p) => p.problemId);
     const existingProblems = await Problem.find({
       _id: { $in: problemIds },
       isActive: true,
     });
-    
+
     if (existingProblems.length !== problemIds.length) {
-      return res.status(400).json({ error: "Some problems not found or inactive" });
+      return res
+        .status(400)
+        .json({ error: "Some problems not found or inactive" });
     }
-    
+
     // Create contest
     const contest = new Contest({
       title,
@@ -165,7 +176,7 @@ export const createContest = async (req, res) => {
       startTime: start,
       endTime: end,
       duration,
-      problems: problems.map(p => ({
+      problems: problems.map((p) => ({
         problemId: p.problemId,
         points: p.points,
         order: p.order,
@@ -176,9 +187,9 @@ export const createContest = async (req, res) => {
       penaltyPerWrongSubmission: penaltyPerWrongSubmission || 20,
       maxSubmissionsPerProblem: maxSubmissionsPerProblem || 50,
     });
-    
+
     await contest.save();
-    
+
     res.status(201).json({
       message: "Contest created successfully",
       contest: {
@@ -199,35 +210,39 @@ export const registerForContest = async (req, res) => {
   try {
     const { contestId } = req.params;
     const userId = req.auth.userId;
-    
+
     const user = await User.findOne({ clerkId: userId });
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
-    
+
     const contest = await Contest.findById(contestId);
     if (!contest || !contest.isActive) {
       return res.status(404).json({ error: "Contest not found" });
     }
-    
+
     // Check if already registered
     if (contest.isUserRegistered(user._id)) {
-      return res.status(400).json({ error: "Already registered for this contest" });
+      return res
+        .status(400)
+        .json({ error: "Already registered for this contest" });
     }
-    
+
     // Check if registration is allowed
     if (!contest.canRegister()) {
       return res.status(400).json({ error: "Registration not allowed" });
     }
-    
+
     // Register user
     contest.registerUser(user._id, user.username);
     await contest.save();
-    
+
     res.json({ message: "Successfully registered for contest" });
   } catch (error) {
     console.error("Register for contest error:", error);
-    res.status(500).json({ error: error.message || "Failed to register for contest" });
+    res
+      .status(500)
+      .json({ error: error.message || "Failed to register for contest" });
   }
 };
 
@@ -236,16 +251,18 @@ export const getContestLeaderboard = async (req, res) => {
   try {
     const { contestId } = req.params;
     const { virtual = false } = req.query;
-    
+
     const contest = await Contest.findById(contestId);
     if (!contest || !contest.isActive) {
       return res.status(404).json({ error: "Contest not found" });
     }
-    
+
     // For active contests, try to get from Redis first
     if (contest.status === "active" && !virtual) {
       try {
-        const redisLeaderboard = await redisContestUtils.getLeaderboard(contestId);
+        const redisLeaderboard = await redisContestUtils.getLeaderboard(
+          contestId
+        );
         if (redisLeaderboard) {
           return res.json({ leaderboard: redisLeaderboard, fromCache: true });
         }
@@ -253,19 +270,18 @@ export const getContestLeaderboard = async (req, res) => {
         console.warn("Redis leaderboard fetch failed:", error.message);
       }
     }
-    
+
     // For finished contests or if Redis fails, get from MongoDB
     if (contest.status === "finished") {
-      return res.json({ 
+      return res.json({
         leaderboard: contest.finalStandings,
-        fromCache: false 
+        fromCache: false,
       });
     }
-    
+
     // Generate leaderboard from submissions
     const leaderboard = await generateLeaderboard(contestId, virtual);
     res.json({ leaderboard, fromCache: false });
-    
   } catch (error) {
     console.error("Get leaderboard error:", error);
     res.status(500).json({ error: "Failed to get leaderboard" });
@@ -286,10 +302,12 @@ export const generateLeaderboard = async (contestId, isVirtual = false) => {
   const penaltyPerWrongSubmission = contest?.penaltyPerWrongSubmission || 20;
 
   // Get disqualified users
-  const disqualifiedUsers = await redisContestUtils.getDisqualifiedUsers(contestId);
+  const disqualifiedUsers = await redisContestUtils.getDisqualifiedUsers(
+    contestId
+  );
 
   // Process submissions to calculate scores
-  submissions.forEach(submission => {
+  submissions.forEach((submission) => {
     const userId = submission.userId.toString();
 
     if (!userStats[userId]) {
@@ -317,13 +335,15 @@ export const generateLeaderboard = async (contestId, isVirtual = false) => {
     }
 
     const problemData = userStats[userId].problems[problemId];
-    problemData.attempts++;
 
     if (submission.isAccepted && !problemData.solved) {
       problemData.solved = true;
       problemData.points = submission.points;
+      problemData.attempts++;
       // CP penalty: submission time + (wrong attempts * penalty per wrong submission)
-      problemData.penalty = submission.timeFromStart + (problemData.wrongAttempts * penaltyPerWrongSubmission);
+      problemData.penalty =
+        submission.timeFromStart +
+        problemData.wrongAttempts * penaltyPerWrongSubmission;
       problemData.firstAcceptedTime = submission.submissionTime;
 
       userStats[userId].totalScore += submission.points;
@@ -331,21 +351,23 @@ export const generateLeaderboard = async (contestId, isVirtual = false) => {
       userStats[userId].lastSubmissionTime = submission.submissionTime;
     } else if (!submission.isAccepted && !problemData.solved) {
       // Count wrong attempts only if problem is not yet solved
+      problemData.attempts++;
       problemData.wrongAttempts++;
     }
   });
-  
+
   // Convert to array and sort
   const leaderboard = Object.values(userStats)
-    .map(user => ({
+    .map((user) => ({
       ...user,
       totalPenalty: Object.values(user.problems)
-        .filter(p => p.solved)
+        .filter((p) => p.solved)
         .reduce((sum, p) => sum + p.penalty, 0),
     }))
     .sort((a, b) => {
       if (a.totalScore !== b.totalScore) return b.totalScore - a.totalScore;
-      if (a.totalPenalty !== b.totalPenalty) return a.totalPenalty - b.totalPenalty;
+      if (a.totalPenalty !== b.totalPenalty)
+        return a.totalPenalty - b.totalPenalty;
       return new Date(a.lastSubmissionTime) - new Date(b.lastSubmissionTime);
     })
     .map((user, index) => ({
@@ -353,7 +375,7 @@ export const generateLeaderboard = async (contestId, isVirtual = false) => {
       rank: index + 1,
       isDisqualified: disqualifiedUsers.includes(user.userId.toString()),
     }));
-  
+
   return leaderboard;
 };
 
@@ -374,9 +396,9 @@ export const getUserContestSubmissions = async (req, res) => {
       userId: user._id,
       isVirtual: virtual === "true",
     })
-    .populate("problemId", "title difficulty")
-    .sort({ submissionTime: -1 })
-    .lean();
+      .populate("problemId", "title difficulty")
+      .sort({ submissionTime: -1 })
+      .lean();
 
     res.json({ submissions });
   } catch (error) {
@@ -402,11 +424,17 @@ export const startVirtualContest = async (req, res) => {
     }
 
     if (!contest.allowVirtualParticipation) {
-      return res.status(400).json({ error: "Virtual participation not allowed" });
+      return res
+        .status(400)
+        .json({ error: "Virtual participation not allowed" });
     }
 
     if (contest.status !== "finished") {
-      return res.status(400).json({ error: "Can only start virtual contest for finished contests" });
+      return res
+        .status(400)
+        .json({
+          error: "Can only start virtual contest for finished contests",
+        });
     }
 
     // Check if user already has a virtual contest running
@@ -418,7 +446,9 @@ export const startVirtualContest = async (req, res) => {
 
     if (existingVirtual) {
       const virtualStartTime = existingVirtual.virtualStartTime;
-      const virtualEndTime = new Date(virtualStartTime.getTime() + contest.duration * 60 * 1000);
+      const virtualEndTime = new Date(
+        virtualStartTime.getTime() + contest.duration * 60 * 1000
+      );
 
       if (new Date() < virtualEndTime) {
         return res.json({
@@ -430,7 +460,9 @@ export const startVirtualContest = async (req, res) => {
     }
 
     const virtualStartTime = new Date();
-    const virtualEndTime = new Date(virtualStartTime.getTime() + contest.duration * 60 * 1000);
+    const virtualEndTime = new Date(
+      virtualStartTime.getTime() + contest.duration * 60 * 1000
+    );
 
     res.json({
       message: "Virtual contest started",
@@ -453,7 +485,9 @@ export const updateContestStatus = async (req, res) => {
     // Check if user is contest admin
     const user = await User.findOne({ clerkId: userId });
     if (!user || !user.contestAdmin) {
-      return res.status(403).json({ error: "Access denied. Contest admin required." });
+      return res
+        .status(403)
+        .json({ error: "Access denied. Contest admin required." });
     }
 
     if (!["upcoming", "active", "finished"].includes(status)) {
@@ -485,8 +519,13 @@ export const updateContestStatus = async (req, res) => {
 
       // Update contest ratings for all participants
       try {
-        const ratingUpdates = await ratingService.updateContestRatings(contestId, leaderboard);
-        console.log(`Updated ratings for ${ratingUpdates.length} participants in contest ${contestId}`);
+        const ratingUpdates = await ratingService.updateContestRatings(
+          contestId,
+          leaderboard
+        );
+        console.log(
+          `Updated ratings for ${ratingUpdates.length} participants in contest ${contestId}`
+        );
       } catch (error) {
         console.error("Failed to update contest ratings:", error);
       }
@@ -527,23 +566,27 @@ export const getDisqualificationStatus = async (req, res) => {
     // Check if user is disqualified in Redis
     try {
       await redisContestUtils.init();
-      const disqualifiedUsers = await redisContestUtils.getDisqualifiedUsers(contestId);
+      const disqualifiedUsers = await redisContestUtils.getDisqualifiedUsers(
+        contestId
+      );
       const isDisqualified = disqualifiedUsers.includes(user._id.toString());
 
       res.json({
         isDisqualified,
         contestId,
-        userId: user._id.toString()
+        userId: user._id.toString(),
       });
     } catch (redisError) {
-      console.warn("Redis check failed, assuming not disqualified:", redisError.message);
+      console.warn(
+        "Redis check failed, assuming not disqualified:",
+        redisError.message
+      );
       res.json({
         isDisqualified: false,
         contestId,
-        userId: user._id.toString()
+        userId: user._id.toString(),
       });
     }
-
   } catch (error) {
     console.error("Get disqualification status error:", error);
     res.status(500).json({ error: "Failed to get disqualification status" });
@@ -574,10 +617,12 @@ export const handleAntiCheatViolation = async (req, res) => {
     }
 
     // Log the violation
-    console.log(`[ANTI-CHEAT] Contest violation - User: ${user.username}, Contest: ${contestId}, Type: ${violation.type}`);
+    console.log(
+      `[ANTI-CHEAT] Contest violation - User: ${user.username}, Contest: ${contestId}, Type: ${violation.type}`
+    );
 
     // Check for serious violations that trigger disqualification
-    const seriousViolations = ['FOCUS_LOST', 'TAB_SWITCH', 'FULLSCREEN_EXIT'];
+    const seriousViolations = ["FOCUS_LOST", "TAB_SWITCH", "FULLSCREEN_EXIT"];
     let disqualified = false;
 
     if (seriousViolations.includes(violation.type)) {
@@ -586,11 +631,13 @@ export const handleAntiCheatViolation = async (req, res) => {
         reason: violation.message,
         timestamp: new Date(),
         violationType: violation.type,
-        isVirtual
+        isVirtual,
       });
 
       disqualified = true;
-      console.log(`[ANTI-CHEAT] User ${user.username} disqualified from contest ${contestId}`);
+      console.log(
+        `[ANTI-CHEAT] User ${user.username} disqualified from contest ${contestId}`
+      );
     }
 
     res.json({
@@ -599,10 +646,9 @@ export const handleAntiCheatViolation = async (req, res) => {
       violation: {
         type: violation.type,
         message: violation.message,
-        timestamp: new Date()
-      }
+        timestamp: new Date(),
+      },
     });
-
   } catch (error) {
     console.error("Handle anti-cheat violation error:", error);
     res.status(500).json({ error: "Failed to handle anti-cheat violation" });
@@ -620,7 +666,9 @@ export const getVirtualContestRankings = async (req, res) => {
     }
 
     if (!contest.allowVirtualParticipation) {
-      return res.status(400).json({ error: "Virtual participation not allowed" });
+      return res
+        .status(400)
+        .json({ error: "Virtual participation not allowed" });
     }
 
     // Generate virtual leaderboard
@@ -667,12 +715,14 @@ export const getContestProblems = async (req, res) => {
 
     // For finished contests, allow access for virtual participation
     if (contest.status === "finished" && !contest.allowVirtualParticipation) {
-      return res.status(403).json({ error: "Virtual participation not allowed" });
+      return res
+        .status(403)
+        .json({ error: "Virtual participation not allowed" });
     }
 
     const problems = contest.problems
       .sort((a, b) => a.order - b.order)
-      .map(p => ({
+      .map((p) => ({
         id: p.problemId._id,
         title: p.problemId.title,
         description: p.problemId.description,
