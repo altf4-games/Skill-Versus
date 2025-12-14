@@ -16,7 +16,7 @@ export default function AdminPage() {
     const checkAdminStatus = async () => {
       try {
         const token = await getToken();
-        const response = await apiClient.getUserProfile(token);
+        const response = await apiClient.getCurrentUser(token);
         if (response.success && response.user) {
           setUser(response.user);
           if (!response.user.contestAdmin) {

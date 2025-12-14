@@ -18,7 +18,7 @@ export function Navbar() {
       if (isSignedIn) {
         try {
           const token = await getToken()
-          const response = await apiClient.getUserProfile(token)
+          const response = await apiClient.getCurrentUser(token)
           if (response.success && response.user) {
             setIsAdmin(response.user.contestAdmin || false)
           }

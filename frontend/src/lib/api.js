@@ -76,6 +76,14 @@ class ApiClient {
     });
   }
 
+  async getCurrentUser(token) {
+    return this.request("/api/users/me", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  }
+
   async getLeaderboard() {
     return this.request("/api/users/leaderboard");
   }
