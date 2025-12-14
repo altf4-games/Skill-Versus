@@ -21,6 +21,7 @@ import ContestsPage from '@/pages/ContestsPage'
 import ContestRoom from '@/pages/ContestRoom'
 import CreateContestPage from '@/pages/CreateContestPage'
 import CreateProblemPage from '@/pages/CreateProblemPage'
+import AdminPage from '@/pages/AdminPage'
 import MobileBlocker from '@/components/MobileBlocker'
 
 
@@ -124,6 +125,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <ContestRoom />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute>
+                    <AdminPage />
                   </ProtectedRoute>
                 }
               />

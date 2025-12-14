@@ -8,6 +8,7 @@ import practiceRoutes from "./practiceRoutes.js";
 import contestRoutes from "./contestRoutes.js";
 import contestRankingRoutes from "./contestRankingRoutes.js";
 import leaderboardRoutes from "./leaderboardRoutes.js";
+import adminRoutes from "./adminRoutes.js";
 
 const router = express.Router();
 
@@ -21,6 +22,7 @@ router.use("/practice", practiceRoutes);
 router.use("/contests", contestRoutes);
 router.use("/contest-rankings", contestRankingRoutes);
 router.use("/leaderboard", leaderboardRoutes);
+router.use("/admin", adminRoutes);
 
 // Health check endpoint
 router.get("/health", (_req, res) => {

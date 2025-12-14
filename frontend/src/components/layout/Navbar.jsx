@@ -3,10 +3,12 @@ import { useAuth, UserButton } from '@clerk/clerk-react'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { useTheme } from '@/contexts/ThemeContext'
-import { Swords, Trophy, User, Zap, Code, Calendar } from 'lucide-react'
+import { useUser } from '@/contexts/UserContext'
+import { Swords, Trophy, User, Zap, Code, Calendar, Shield } from 'lucide-react'
 
 export function Navbar() {
   const { isSignedIn } = useAuth()
+  const { user } = useUser()
   const { theme } = useTheme()
   const navigate = useNavigate()
 
@@ -74,6 +76,17 @@ export function Navbar() {
                     <span>Profile</span>
                   </div>
                 </Link>
+                {user?.contestAdmin && (
+                  <Link
+                    to="/admin"
+                    className="text-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors"
+                  >
+                    <div className="flex items-center space-x-1">
+                      <Shield className="h-4 w-4" />
+                      <span>Admin</span>
+                    </div>
+                  </Link>
+                )}
               </div>
             )}
           </div>
