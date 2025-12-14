@@ -3,14 +3,36 @@ import { useAuth, UserButton } from '@clerk/clerk-react'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { useTheme } from '@/contexts/ThemeContext'
-import { useUser } from '@/contexts/UserContext'
 import { Swords, Trophy, User, Zap, Code, Calendar, Shield } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { apiClient } from '@/lib/api'
 
 export function Navbar() {
-  const { isSignedIn } = useAuth()
-  const { user } = useUser()
+  const { isSignedIn, getToken } = useAuth()
   const { theme } = useTheme()
   const navigate = useNavigate()
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (isSignedIn) {
+        try {
+          const token = await getToken()
+          const response = await apiClient.getUserProfile(token)
+          if (response.success && response.user) {
+            setIsAdmin(response.user.contestAdmin || false)
+          }
+        } catch (error) {
+          console.error('Failed to check admin status:', error)
+          setIsAdmin(false)
+        }
+      } else {
+        setIsAdmin(false)
+      }
+    }
+
+    checkAdminStatus()
+  }, [isSignedIn, getToken])
 
   return (
     <nav className="border-b bg-background">
@@ -76,7 +98,7 @@ export function Navbar() {
                     <span>Profile</span>
                   </div>
                 </Link>
-                {user?.contestAdmin && (
+                {isAdmin && (
                   <Link
                     to="/admin"
                     className="text-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors"

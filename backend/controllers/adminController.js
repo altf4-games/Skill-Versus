@@ -9,11 +9,13 @@ export const checkContestAdmin = async (req, res, next) => {
   try {
     const userId = req.auth.userId;
     const user = await User.findOne({ clerkId: userId });
-    
+
     if (!user || !user.contestAdmin) {
-      return res.status(403).json({ error: "Access denied. Contest admin required." });
+      return res
+        .status(403)
+        .json({ error: "Access denied. Contest admin required." });
     }
-    
+
     req.user = user;
     next();
   } catch (error) {
@@ -47,21 +49,23 @@ export const createContestProblem = async (req, res) => {
     // Check if problem with same title already exists
     const existingProblem = await Problem.findOne({ title });
     if (existingProblem) {
-      return res.status(400).json({ error: "Problem with this title already exists" });
+      return res
+        .status(400)
+        .json({ error: "Problem with this title already exists" });
     }
 
     // Transform testCases to match model schema
-    const transformedTestCases = testCases.map(tc => ({
+    const transformedTestCases = testCases.map((tc) => ({
       input: tc.input,
       expectedOutput: tc.output || tc.expectedOutput,
-      isHidden: tc.isHidden || false
+      isHidden: tc.isHidden || false,
     }));
 
     // Create problem
     const problem = new Problem({
       title,
       description,
-      difficulty: difficulty || 'Easy',
+      difficulty: difficulty || "Easy",
       timeLimit: timeLimit || 2000,
       memoryLimit: memoryLimit || 256,
       tags: tags || [],
@@ -72,7 +76,7 @@ export const createContestProblem = async (req, res) => {
       driverCode: driverCode || {},
       createdBy: req.user._id,
       createdByUsername: req.user.username,
-      constraints: constraints || '',
+      constraints: constraints || "",
     });
 
     await problem.save();
@@ -86,7 +90,6 @@ export const createContestProblem = async (req, res) => {
         isContestOnly: problem.isContestOnly,
       },
     });
-
   } catch (error) {
     console.error("Create contest problem error:", error);
     res.status(500).json({ error: "Failed to create problem" });
@@ -113,7 +116,9 @@ export const createContest = async (req, res) => {
     // Validate start time
     const start = new Date(startTime);
     if (start <= new Date()) {
-      return res.status(400).json({ error: "Start time must be in the future" });
+      return res
+        .status(400)
+        .json({ error: "Start time must be in the future" });
     }
 
     // Calculate end time
@@ -127,7 +132,9 @@ export const createContest = async (req, res) => {
     });
 
     if (existingProblems.length !== problemIds.length) {
-      return res.status(400).json({ error: "Some problems not found or inactive" });
+      return res
+        .status(400)
+        .json({ error: "Some problems not found or inactive" });
     }
 
     // Create contest
@@ -155,7 +162,9 @@ export const createContest = async (req, res) => {
 
     // Generate share link (using contest ID or custom slug)
     const shareSlug = customSlug || contest._id.toString();
-    const shareLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/contests/${shareSlug}`;
+    const shareLink = `${
+      process.env.FRONTEND_URL || "http://localhost:5173"
+    }/contests/${shareSlug}`;
 
     res.status(201).json({
       message: "Contest created successfully",
@@ -177,9 +186,9 @@ export const createContest = async (req, res) => {
 export const getAllProblems = async (req, res) => {
   try {
     const problems = await Problem.find()
-      .select('title difficulty isContestOnly createdAt createdByUsername')
+      .select("title difficulty isContestOnly createdAt createdByUsername")
       .sort({ createdAt: -1 });
-    
+
     res.json({ problems });
   } catch (error) {
     console.error("Get problems error:", error);
@@ -191,9 +200,11 @@ export const getAllProblems = async (req, res) => {
 export const getAllContests = async (req, res) => {
   try {
     const contests = await Contest.find()
-      .select('title status startTime endTime totalParticipants createdByUsername isPublic')
+      .select(
+        "title status startTime endTime totalParticipants createdByUsername isPublic"
+      )
       .sort({ startTime: -1 });
-    
+
     res.json({ contests });
   } catch (error) {
     console.error("Get contests error:", error);
@@ -217,10 +228,12 @@ export const getLiveLeaderboard = async (req, res) => {
     // Enrich with user data
     const enrichedLeaderboard = await Promise.all(
       leaderboard.map(async (entry) => {
-        const user = await User.findById(entry.userId).select('username firstName lastName profileImage');
+        const user = await User.findById(entry.userId).select(
+          "username firstName lastName profileImage"
+        );
         return {
           ...entry,
-          user: user || { username: 'Unknown' },
+          user: user || { username: "Unknown" },
         };
       })
     );
@@ -247,16 +260,24 @@ export const getDisqualifiedUsers = async (req, res) => {
       return res.status(404).json({ error: "Contest not found" });
     }
 
-    const disqualifiedUserIds = await redisContestUtils.getDisqualifiedUsers(contestId);
-    
+    const disqualifiedUserIds = await redisContestUtils.getDisqualifiedUsers(
+      contestId
+    );
+
     const disqualifiedUsers = await Promise.all(
       disqualifiedUserIds.map(async (userId) => {
-        const user = await User.findById(userId).select('username firstName lastName email');
-        const disqualificationData = await redisContestUtils.getUserDisqualificationData(contestId, userId);
-        
+        const user = await User.findById(userId).select(
+          "username firstName lastName email"
+        );
+        const disqualificationData =
+          await redisContestUtils.getUserDisqualificationData(
+            contestId,
+            userId
+          );
+
         return {
           userId,
-          user: user || { username: 'Unknown' },
+          user: user || { username: "Unknown" },
           disqualificationData,
         };
       })
@@ -296,7 +317,7 @@ export const disqualifyUser = async (req, res) => {
     // Disqualify user in Redis
     await redisContestUtils.disqualifyUser(contestId, userId, {
       reason,
-      violationType: 'admin_action',
+      violationType: "admin_action",
       timestamp: new Date().toISOString(),
       adminUsername: req.user.username,
     });
@@ -351,8 +372,10 @@ export const clearAllDisqualifications = async (req, res) => {
       return res.status(404).json({ error: "Contest not found" });
     }
 
-    const disqualifiedUserIds = await redisContestUtils.getDisqualifiedUsers(contestId);
-    
+    const disqualifiedUserIds = await redisContestUtils.getDisqualifiedUsers(
+      contestId
+    );
+
     // Remove all disqualifications
     for (const userId of disqualifiedUserIds) {
       await redisContestUtils.removeDisqualification(contestId, userId);
@@ -397,9 +420,10 @@ export const toggleProblemContestOnly = async (req, res) => {
 // Get all users with admin privileges
 export const getAdminUsers = async (req, res) => {
   try {
-    const adminUsers = await User.find({ contestAdmin: true })
-      .select('username email firstName lastName contestAdmin createdAt');
-    
+    const adminUsers = await User.find({ contestAdmin: true }).select(
+      "username email firstName lastName contestAdmin createdAt"
+    );
+
     res.json({ adminUsers });
   } catch (error) {
     console.error("Get admin users error:", error);
@@ -474,8 +498,12 @@ export const getContestStats = async (req, res) => {
     }
 
     const totalRegistered = contest.registeredUsers.length;
-    const totalParticipated = await ContestRanking.countDocuments({ contestId });
-    const disqualifiedCount = (await redisContestUtils.getDisqualifiedUsers(contestId)).length;
+    const totalParticipated = await ContestRanking.countDocuments({
+      contestId,
+    });
+    const disqualifiedCount = (
+      await redisContestUtils.getDisqualifiedUsers(contestId)
+    ).length;
 
     res.json({
       contestId,

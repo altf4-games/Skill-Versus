@@ -38,7 +38,10 @@ router.get("/contests/:contestId/leaderboard", getLiveLeaderboard);
 // Disqualification management
 router.get("/contests/:contestId/disqualified", getDisqualifiedUsers);
 router.post("/contests/:contestId/disqualify", disqualifyUser);
-router.delete("/contests/:contestId/disqualified/:userId", removeDisqualification);
+router.delete(
+  "/contests/:contestId/disqualified/:userId",
+  removeDisqualification
+);
 router.delete("/contests/:contestId/disqualified", clearAllDisqualifications);
 
 // Admin user management
