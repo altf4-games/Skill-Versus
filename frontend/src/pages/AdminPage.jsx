@@ -516,7 +516,7 @@ function ContestsTab({ getToken }) {
   const fetchProblems = async () => {
     try {
       const token = await getToken();
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/problems`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/problems?contestOnly=true`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();

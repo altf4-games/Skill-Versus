@@ -185,7 +185,14 @@ export const createContest = async (req, res) => {
 // Get all problems (including contest-only)
 export const getAllProblems = async (req, res) => {
   try {
-    const problems = await Problem.find()
+    const { contestOnly } = req.query;
+    
+    let query = {};
+    if (contestOnly === 'true') {
+      query.isContestOnly = true;
+    }
+    
+    const problems = await Problem.find(query)
       .select("title difficulty isContestOnly createdAt createdByUsername")
       .sort({ createdAt: -1 });
 
