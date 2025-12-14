@@ -1,22 +1,51 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@clerk/clerk-react';
-import { useUser } from '@/contexts/UserContext';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '@/lib/api';
 
 export default function AdminPage() {
   const { getToken } = useAuth();
-  const { user } = useUser();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('problems');
   const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
-  // Redirect if not admin
+  // Check admin status
   useEffect(() => {
-    if (user && !user.contestAdmin) {
-      navigate('/');
-    }
-  }, [user, navigate]);
+    const checkAdminStatus = async () => {
+      try {
+        const token = await getToken();
+        const response = await apiClient.getUserProfile(token);
+        if (response.success && response.user) {
+          setUser(response.user);
+          if (!response.user.contestAdmin) {
+            navigate('/');
+          }
+        } else {
+          navigate('/');
+        }
+      } catch (error) {
+        console.error('Failed to verify admin status:', error);
+        navigate('/');
+      } finally {
+        setCheckingAuth(false);
+      }
+    };
+
+    checkAdminStatus();
+  }, [getToken, navigate]);
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-400">Verifying admin access...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!user || !user.contestAdmin) {
     return (
