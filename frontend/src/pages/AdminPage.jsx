@@ -59,7 +59,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 p-8">
+    <div className="min-h-screen bg-background p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -620,6 +620,7 @@ function ContestsTab({ getToken }) {
                 value={formData.startTime}
                 onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
                 className="w-full px-4 py-2 bg-gray-800 text-white rounded border border-gray-600"
+                min={new Date().toISOString().slice(0, 16)}
               />
             </div>
           </div>
@@ -1085,16 +1086,6 @@ function UsersTab({ getToken }) {
   return (
     <div>
       <h2 className="text-2xl font-bold text-white mb-6">Admin Users</h2>
-
-      <div className="mb-6 bg-gray-700 p-4 rounded">
-        <h3 className="text-white font-semibold mb-2">Grant Admin Privileges</h3>
-        <p className="text-gray-400 text-sm mb-3">
-          Use the grantContestAdmin.js script in the backend/utils folder to grant admin privileges.
-        </p>
-        <code className="text-green-400 text-sm">
-          node backend/utils/grantContestAdmin.js [email]
-        </code>
-      </div>
 
       <div className="overflow-x-auto">
         <table className="w-full text-white">

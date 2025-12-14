@@ -95,7 +95,7 @@ class ApiClient {
     });
 
     if (duelType) {
-      params.append('duelType', duelType);
+      params.append("duelType", duelType);
     }
 
     return this.request(`/api/users/duel-history?${params.toString()}`, {

@@ -225,6 +225,16 @@ export const getLiveLeaderboard = async (req, res) => {
     // Get live leaderboard from Redis
     const leaderboard = await redisContestUtils.getLeaderboard(contestId);
 
+    // Handle null/empty leaderboard
+    if (!leaderboard || !Array.isArray(leaderboard)) {
+      return res.json({
+        contestId,
+        contestTitle: contest.title,
+        status: contest.status,
+        leaderboard: [],
+      });
+    }
+
     // Enrich with user data
     const enrichedLeaderboard = await Promise.all(
       leaderboard.map(async (entry) => {
@@ -349,7 +359,7 @@ export const removeDisqualification = async (req, res) => {
     }
 
     // Remove disqualification from Redis
-    await redisContestUtils.removeDisqualification(contestId, userId);
+    await redisContestUtils.removeUserDisqualification(contestId, userId);
 
     res.json({
       message: `Disqualification removed for user ${user.username}`,
@@ -378,7 +388,7 @@ export const clearAllDisqualifications = async (req, res) => {
 
     // Remove all disqualifications
     for (const userId of disqualifiedUserIds) {
-      await redisContestUtils.removeDisqualification(contestId, userId);
+      await redisContestUtils.removeUserDisqualification(contestId, userId);
     }
 
     res.json({
