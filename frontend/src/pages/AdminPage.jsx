@@ -535,11 +535,17 @@ function ContestsTab({ getToken }) {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch leaderboard: ${response.statusText}`);
+      }
+      
       const data = await response.json();
       setLeaderboard(data);
       setSelectedContest(contestId);
     } catch (error) {
       console.error('Failed to fetch leaderboard:', error);
+      alert('Failed to fetch leaderboard. Please try again.');
     }
   };
 
@@ -755,36 +761,45 @@ function ContestsTab({ getToken }) {
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-xl font-bold text-white">Live Leaderboard: {leaderboard.contestTitle}</h3>
             <button
-              onClick={() => setSelectedContest(null)}
+              onClick={() => {
+                setSelectedContest(null);
+                setLeaderboard(null);
+              }}
               className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
             >
               Close
             </button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-white">
-              <thead className="bg-gray-800">
-                <tr>
-                  <th className="px-4 py-2 text-left">Rank</th>
-                  <th className="px-4 py-2 text-left">Username</th>
-                  <th className="px-4 py-2 text-left">Score</th>
-                  <th className="px-4 py-2 text-left">Penalty</th>
-                  <th className="px-4 py-2 text-left">Solved</th>
-                </tr>
-              </thead>
-              <tbody>
-                {leaderboard.leaderboard.map((entry, idx) => (
-                  <tr key={entry.userId} className="border-b border-gray-600">
-                    <td className="px-4 py-2">{idx + 1}</td>
-                    <td className="px-4 py-2">{entry.user?.username || 'Unknown'}</td>
-                    <td className="px-4 py-2">{entry.totalScore || 0}</td>
-                    <td className="px-4 py-2">{entry.totalPenalty || 0}</td>
-                    <td className="px-4 py-2">{entry.problemsSolved || 0}</td>
+          {leaderboard.leaderboard && leaderboard.leaderboard.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-white">
+                <thead className="bg-gray-800">
+                  <tr>
+                    <th className="px-4 py-2 text-left">Rank</th>
+                    <th className="px-4 py-2 text-left">Username</th>
+                    <th className="px-4 py-2 text-left">Score</th>
+                    <th className="px-4 py-2 text-left">Penalty</th>
+                    <th className="px-4 py-2 text-left">Solved</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {leaderboard.leaderboard.map((entry, idx) => (
+                    <tr key={entry.userId} className="border-b border-gray-600">
+                      <td className="px-4 py-2">{idx + 1}</td>
+                      <td className="px-4 py-2">{entry.user?.username || 'Unknown'}</td>
+                      <td className="px-4 py-2">{entry.totalScore || 0}</td>
+                      <td className="px-4 py-2">{entry.totalPenalty || 0}</td>
+                      <td className="px-4 py-2">{entry.problemsSolved || 0}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-400">
+              No participants yet or contest hasn't started.
+            </div>
+          )}
         </div>
       )}
 

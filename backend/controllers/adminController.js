@@ -229,7 +229,42 @@ export const getLiveLeaderboard = async (req, res) => {
       return res.status(404).json({ error: "Contest not found" });
     }
 
-    // Get live leaderboard from Redis
+    let leaderboardData = [];
+
+    // If contest is finished, get from finalStandings
+    if (contest.status === "finished" && contest.finalStandings && contest.finalStandings.length > 0) {
+      // Use finalStandings from database
+      leaderboardData = contest.finalStandings.map((entry) => ({
+        userId: entry.userId,
+        username: entry.username,
+        totalScore: entry.totalScore,
+        totalPenalty: entry.totalPenalty,
+        problemsSolved: entry.problemsSolved,
+        rank: entry.rank,
+      }));
+
+      // Enrich with user data
+      const enrichedLeaderboard = await Promise.all(
+        leaderboardData.map(async (entry) => {
+          const user = await User.findById(entry.userId).select(
+            "username firstName lastName profileImage"
+          );
+          return {
+            ...entry,
+            user: user || { username: entry.username || "Unknown" },
+          };
+        })
+      );
+
+      return res.json({
+        contestId,
+        contestTitle: contest.title,
+        status: contest.status,
+        leaderboard: enrichedLeaderboard,
+      });
+    }
+
+    // For active/upcoming contests, get from Redis
     const leaderboard = await redisContestUtils.getLeaderboard(contestId);
 
     // Handle null/empty leaderboard
