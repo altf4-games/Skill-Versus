@@ -429,11 +429,14 @@ const updateContestLeaderboard = async (contestId, isVirtual = false) => {
 
       if (submission.isAccepted && !problemData.solved) {
         problemData.solved = true;
-        problemData.points = submission.points;
+        // Calculate penalty points deducted for wrong submissions
+        const penaltyDeduction = problemData.wrongAttempts * penaltyPerWrongSubmission;
+        // Points awarded = problem points - penalty deduction (minimum 0)
+        problemData.points = Math.max(0, submission.points - penaltyDeduction);
         // CP penalty: submission time + (wrong attempts * penalty per wrong submission)
         problemData.penalty = submission.timeFromStart + (problemData.wrongAttempts * penaltyPerWrongSubmission);
 
-        userStats[userId].totalScore += submission.points;
+        userStats[userId].totalScore += problemData.points;
         userStats[userId].problemsSolved++;
         userStats[userId].lastSubmissionTime = submission.submissionTime;
       } else if (!submission.isAccepted && !problemData.solved) {
