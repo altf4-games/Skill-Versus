@@ -11,39 +11,41 @@ const JUDGE0_BASE_URL = process.env.JUDGE0_BASE_URL;
  * Handles multiple lines
  */
 function convertToCodeChefInput(input) {
-  const lines = input.trim().split('\n');
+  const lines = input.trim().split("\n");
   const convertedLines = [];
 
   for (const line of lines) {
     const trimmed = line.trim();
-    
+
     // Check if it's a JSON array
-    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
       try {
         const arr = JSON.parse(trimmed);
         if (Array.isArray(arr)) {
           // Output: length on first line, then space-separated values
           convertedLines.push(arr.length.toString());
-          convertedLines.push(arr.join(' '));
+          convertedLines.push(arr.join(" "));
           continue;
         }
       } catch (e) {
         // Not valid JSON, treat as raw string
       }
     }
-    
+
     // Check if it's a quoted string
-    if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-        (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+    if (
+      (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+      (trimmed.startsWith("'") && trimmed.endsWith("'"))
+    ) {
       convertedLines.push(trimmed.slice(1, -1));
       continue;
     }
-    
+
     // Pass through as-is (numbers, plain strings, etc.)
     convertedLines.push(trimmed);
   }
 
-  return convertedLines.join('\n');
+  return convertedLines.join("\n");
 }
 
 /**
@@ -55,28 +57,31 @@ function convertToCodeChefInput(input) {
  */
 function normalizeOutput(str) {
   if (!str) return "";
-  
+
   // Split by lines and normalize each line
-  const lines = str.trim().split('\n').map(line => {
-    let normalized = line.trim().toLowerCase();
-    
-    // Remove spaces around array brackets and commas: [0, 1] -> [0,1]
-    normalized = normalized.replace(/\[\s*/g, '[');
-    normalized = normalized.replace(/\s*\]/g, ']');
-    normalized = normalized.replace(/\s*,\s*/g, ',');
-    
-    // If line is a simple array like [0,1], convert to space-separated
-    const arrayMatch = normalized.match(/^\[([^\[\]]*)\]$/);
-    if (arrayMatch) {
-      // Convert [0,1,2] to 0 1 2
-      normalized = arrayMatch[1].replace(/,/g, ' ');
-    }
-    
-    return normalized;
-  });
-  
+  const lines = str
+    .trim()
+    .split("\n")
+    .map((line) => {
+      let normalized = line.trim().toLowerCase();
+
+      // Remove spaces around array brackets and commas: [0, 1] -> [0,1]
+      normalized = normalized.replace(/\[\s*/g, "[");
+      normalized = normalized.replace(/\s*\]/g, "]");
+      normalized = normalized.replace(/\s*,\s*/g, ",");
+
+      // If line is a simple array like [0,1], convert to space-separated
+      const arrayMatch = normalized.match(/^\[([^\[\]]*)\]$/);
+      if (arrayMatch) {
+        // Convert [0,1,2] to 0 1 2
+        normalized = arrayMatch[1].replace(/,/g, " ");
+      }
+
+      return normalized;
+    });
+
   // Join back and remove empty lines
-  return lines.filter(l => l.length > 0).join('\n');
+  return lines.filter((l) => l.length > 0).join("\n");
 }
 
 // Helper function to make requests to Judge0 API
@@ -231,7 +236,9 @@ export const submitCodeToJudge0 = async (submissionData) => {
   const { source_code, language_id, stdin, expected_output } = submissionData;
 
   if (!source_code || !language_id) {
-    throw new Error("Missing required fields: source_code and language_id are required");
+    throw new Error(
+      "Missing required fields: source_code and language_id are required"
+    );
   }
 
   const submission = {
@@ -244,13 +251,10 @@ export const submitCodeToJudge0 = async (submissionData) => {
     wall_time_limit: 5,
   };
 
-  const result = await makeJudge0Request(
-    "/submissions?base64_encoded=false",
-    {
-      method: "POST",
-      body: JSON.stringify(submission),
-    }
-  );
+  const result = await makeJudge0Request("/submissions?base64_encoded=false", {
+    method: "POST",
+    body: JSON.stringify(submission),
+  });
 
   return result;
 };
@@ -294,7 +298,14 @@ export const getBatchSubmissions = async (req, res) => {
 // Run code with sample test cases (for practice/run button)
 export const runCodeWithTests = async (req, res) => {
   try {
-    const { source_code, language_id, problem_id, contest_id, is_virtual, virtual_start_time } = req.body;
+    const {
+      source_code,
+      language_id,
+      problem_id,
+      contest_id,
+      is_virtual,
+      virtual_start_time,
+    } = req.body;
 
     if (!source_code || !language_id || !problem_id) {
       return res.status(400).json({
@@ -305,7 +316,7 @@ export const runCodeWithTests = async (req, res) => {
 
     // If this is a contest problem, validate contest status
     if (contest_id) {
-      const Contest = (await import('../models/Contest.js')).default;
+      const Contest = (await import("../models/Contest.js")).default;
       const contest = await Contest.findById(contest_id);
 
       if (contest) {
@@ -316,43 +327,51 @@ export const runCodeWithTests = async (req, res) => {
         // Calculate real-time status
         let currentStatus;
         if (now < contestStart) {
-          currentStatus = 'upcoming';
+          currentStatus = "upcoming";
         } else if (now <= contestEnd) {
-          currentStatus = 'active';
+          currentStatus = "active";
         } else {
-          currentStatus = 'finished';
+          currentStatus = "finished";
         }
 
         if (is_virtual) {
           // For virtual contests, check virtual timing
           if (!virtual_start_time) {
-            return res.status(400).json({ error: "Virtual start time required for virtual contest" });
+            return res
+              .status(400)
+              .json({
+                error: "Virtual start time required for virtual contest",
+              });
           }
 
           const virtualStart = new Date(virtual_start_time);
-          const virtualEnd = new Date(virtualStart.getTime() + contest.duration * 60 * 1000);
+          const virtualEnd = new Date(
+            virtualStart.getTime() + contest.duration * 60 * 1000
+          );
 
           if (now > virtualEnd) {
             return res.status(400).json({
               error: "Virtual contest has ended",
-              message: "Your virtual contest time has expired."
+              message: "Your virtual contest time has expired.",
             });
           }
         } else {
           // For regular contests, block running code if contest is not active
-          if (currentStatus === 'upcoming') {
+          if (currentStatus === "upcoming") {
             return res.status(400).json({
               error: "Contest has not started yet",
               contestStatus: currentStatus,
-              message: "Please wait for the contest to begin before running code."
+              message:
+                "Please wait for the contest to begin before running code.",
             });
           }
 
-          if (currentStatus === 'finished') {
+          if (currentStatus === "finished") {
             return res.status(400).json({
               error: "Contest has ended",
               contestStatus: currentStatus,
-              message: "Code running is disabled after contest ends. Start a virtual contest to practice."
+              message:
+                "Code running is disabled after contest ends. Start a virtual contest to practice.",
             });
           }
         }
@@ -384,12 +403,12 @@ export const runCodeWithTests = async (req, res) => {
     for (const testCase of sampleTestCases) {
       try {
         // Convert input to CodeChef style (space-separated instead of JSON arrays)
-        const stdin = convertToCodeChefInput(testCase.input);
-        
+        const convertedInput = convertToCodeChefInput(testCase.input);
+
         const submission = {
           source_code,
           language_id,
-          stdin,
+          stdin: convertedInput,
           cpu_time_limit: 2,
           memory_limit: 128000,
           wall_time_limit: 5,
@@ -494,12 +513,12 @@ export const submitCodeWithTests = async (req, res) => {
     for (const testCase of allTestCases) {
       try {
         // Convert input to CodeChef style (space-separated instead of JSON arrays)
-        const stdin = convertToCodeChefInput(testCase.input);
-        
+        const convertedInput = convertToCodeChefInput(testCase.input);
+
         const submission = {
           source_code,
           language_id,
-          stdin,
+          stdin: convertedInput,
           cpu_time_limit: 2,
           memory_limit: 128000,
           wall_time_limit: 5,

@@ -222,7 +222,11 @@ const ContestRoom = () => {
 
   // Fetch problems only when contest is active or finished (not upcoming)
   useEffect(() => {
-    if (contest && isRegistered && (contestStatus === "active" || contestStatus === "finished")) {
+    if (
+      contest &&
+      isRegistered &&
+      (contestStatus === "active" || contestStatus === "finished")
+    ) {
       fetchProblems();
     }
   }, [contest, isRegistered, contestStatus]);
