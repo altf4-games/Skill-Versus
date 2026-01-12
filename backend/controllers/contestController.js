@@ -758,39 +758,17 @@ export const getContestProblems = async (req, res) => {
       return res.status(404).json({ error: "Contest not found" });
     }
 
-    // Calculate real-time status based on server time
-    const now = new Date();
-    const contestStart = new Date(contest.startTime);
-    const contestEnd = new Date(contest.endTime);
-
-    let currentStatus;
-    if (now < contestStart) {
-      currentStatus = "upcoming";
-    } else if (now <= contestEnd) {
-      currentStatus = "active";
-    } else {
-      currentStatus = "finished";
-    }
-
     // Check if user is registered
     const isRegistered = contest.registeredUsers.some(
       (regUser) => regUser.userId.toString() === user._id.toString()
     );
 
-    // BLOCK access to problems before contest starts
-    if (currentStatus === "upcoming") {
-      return res.status(403).json({ 
-        error: "Contest has not started yet",
-        message: "Problems will be available when the contest begins."
-      });
-    }
-
-    if (!isRegistered && currentStatus === "active") {
+    if (!isRegistered && contest.status === "active") {
       return res.status(403).json({ error: "Not registered for this contest" });
     }
 
     // For finished contests, allow access for virtual participation
-    if (currentStatus === "finished" && !contest.allowVirtualParticipation) {
+    if (contest.status === "finished" && !contest.allowVirtualParticipation) {
       return res
         .status(403)
         .json({ error: "Virtual participation not allowed" });

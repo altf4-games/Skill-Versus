@@ -186,12 +186,11 @@ const ContestRoom = () => {
     }
   }, [contest, searchParams]);
 
-  // Fetch problems when contest is active and user is registered (or virtual)
   useEffect(() => {
-    if (contest && (isRegistered || isVirtual) && (contestStatus === 'active' || isVirtual)) {
+    if (contest && isRegistered) {
       fetchProblems();
     }
-  }, [contest, isRegistered, isVirtual, contestStatus]);
+  }, [contest, isRegistered]);
 
   const updateTimer = useCallback(() => {
     if (!contest) return;
