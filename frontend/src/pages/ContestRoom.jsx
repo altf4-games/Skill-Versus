@@ -9,13 +9,8 @@ import FullscreenPromptModal from '../components/FullscreenPromptModal';
 import { SEO } from '../components/SEO';
 import { API_ENDPOINTS } from '../config/api';
 import { apiClient } from '../lib/api';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Trophy, Clock, Users, Code, Play, Send, Eye, EyeOff, CheckCircle, Shield, AlertTriangle } from 'lucide-react';
+import { Clock, Play, Send, CheckCircle, Shield, AlertTriangle, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const ContestRoom = () => {
   const { contestId } = useParams();
@@ -45,7 +40,7 @@ const ContestRoom = () => {
   // Contest timing
   const [timeRemaining, setTimeRemaining] = useState(null);
   const [contestStatus, setContestStatus] = useState('loading');
-  const [serverTimeOffset, setServerTimeOffset] = useState(0); // Offset between server and local time
+  const [serverTimeOffset, setServerTimeOffset] = useState(0);
   
   // Virtual contest
   const [isVirtual, setIsVirtual] = useState(searchParams.get('virtual') === 'true');
@@ -56,6 +51,8 @@ const ContestRoom = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [antiCheatWarning, setAntiCheatWarning] = useState('');
+  const [showProblemList, setShowProblemList] = useState(true);
+  const [exitModalOpen, setExitModalOpen] = useState(false);
 
   // Anti-cheat measures
   const [antiCheatViolations, setAntiCheatViolations] = useState([]);
@@ -66,17 +63,14 @@ const ContestRoom = () => {
     setAntiCheatWarning(`Anti-cheat violation: ${violation.message}`);
     setTimeout(() => setAntiCheatWarning(''), 5000);
 
-    // Track violations for submission
     setAntiCheatViolations(prev => [...prev, {
       ...violation,
       timestamp: new Date(),
     }]);
 
-    // Check for serious violations that trigger disqualification
     const seriousViolations = ['FOCUS_LOST', 'TAB_SWITCH', 'FULLSCREEN_EXIT'];
     if (seriousViolations.includes(violation.type)) {
       try {
-        // Report violation to server for disqualification
         const response = await fetch(API_ENDPOINTS.contestAntiCheatViolation(contestId), {
           method: 'POST',
           headers: {
@@ -116,7 +110,8 @@ const ContestRoom = () => {
     violations,
     violationCount,
     isFullscreenSupported,
-    enterFullscreen
+    enterFullscreen,
+    exitFullscreen
   } = useAntiCheat({
     isActive: antiCheatActive,
     onViolation: handleAntiCheatViolation,
@@ -126,24 +121,22 @@ const ContestRoom = () => {
     enableFocusDetection: true
   });
 
-  // Fullscreen modal state
   const [showFullscreenModal, setShowFullscreenModal] = useState(false);
 
-  // Show modal if contest is active, registered, fullscreen required, but not in fullscreen
   useEffect(() => {
     if (
       contestStatus === 'active' &&
       isRegistered &&
       isFullscreenSupported &&
-      !isFullscreen
+      !isFullscreen &&
+      !exitModalOpen
     ) {
       setShowFullscreenModal(true);
     } else {
       setShowFullscreenModal(false);
     }
-  }, [contestStatus, isRegistered, isFullscreen, isFullscreenSupported]);
+  }, [contestStatus, isRegistered, isFullscreen, isFullscreenSupported, exitModalOpen]);
 
-  // Real-time contest features
   const {
     leaderboard,
     submissions,
@@ -163,36 +156,27 @@ const ContestRoom = () => {
     fetchContestDetails();
   }, [contestId]);
 
-  // Check disqualification status on page load
   useEffect(() => {
     const checkDisqualificationStatus = async () => {
       if (!contestId || !user) return;
-
       try {
         const response = await fetch(API_ENDPOINTS.contestDisqualificationStatus(contestId), {
-          headers: {
-            'Authorization': `Bearer ${await getToken()}`,
-          },
+          headers: { 'Authorization': `Bearer ${await getToken()}` },
         });
-
         if (response.ok) {
           const data = await response.json();
           setIsDisqualified(data.isDisqualified);
-
           if (data.isDisqualified) {
             setError('You have been disqualified from this contest due to anti-cheat violations.');
           }
         }
       } catch (err) {
         console.error('Failed to check disqualification status:', err);
-        // Don't show error to user as this is not critical
       }
     };
-
     checkDisqualificationStatus();
   }, [contestId, user, getToken]);
 
-  // Handle virtual contest initialization
   useEffect(() => {
     if (searchParams.get('virtual') === 'true' && contest && !isVirtual) {
       handleStartVirtual();
@@ -205,11 +189,8 @@ const ContestRoom = () => {
     }
   }, [contest, isRegistered]);
 
-  // Timer function - defined before useEffect to avoid temporal dead zone
   const updateTimer = useCallback(() => {
     if (!contest) return;
-
-    // Use server time with offset for accurate timing
     const now = new Date(Date.now() + serverTimeOffset);
     let targetTime;
 
@@ -223,7 +204,6 @@ const ContestRoom = () => {
     }
 
     const diff = targetTime - now;
-
     if (diff <= 0) {
       setTimeRemaining(null);
       if (contestStatus === 'upcoming') {
@@ -238,26 +218,21 @@ const ContestRoom = () => {
 
   useEffect(() => {
     if (contest) {
-      // Initial timer update
       updateTimer();
-      // Set up interval
       const interval = setInterval(updateTimer, 1000);
       return () => clearInterval(interval);
     }
   }, [contest, updateTimer]);
 
-  // Auto-switch to leaderboard for unregistered users
   useEffect(() => {
     if (!isRegistered && !isVirtual && (contestStatus === 'active' || contestStatus === 'finished')) {
       setActiveTab('leaderboard');
     }
   }, [isRegistered, isVirtual, contestStatus]);
 
-  // Update code template when language changes
   useEffect(() => {
     if (problems.length > 0 && currentProblem >= 0) {
       const problem = problems[currentProblem];
-      // Use languageBoilerplate (full driver code) if available, otherwise fallback to functionSignatures
       const template = problem?.languageBoilerplate?.[language] ||
                       problem?.functionSignatures?.[language] ||
                       problem?.functionSignature || '';
@@ -268,9 +243,7 @@ const ContestRoom = () => {
   const fetchContestDetails = async () => {
     try {
       const response = await fetch(API_ENDPOINTS.contestDetails(contestId), {
-        headers: {
-          'Authorization': `Bearer ${await getToken()}`,
-        },
+        headers: { 'Authorization': `Bearer ${await getToken()}` },
       });
       const data = await response.json();
 
@@ -279,7 +252,6 @@ const ContestRoom = () => {
         setIsRegistered(data.isRegistered);
         setCanRegister(data.canRegister);
 
-        // Calculate server time offset if server time is provided
         if (data.serverTime) {
           const serverTime = new Date(data.serverTime);
           const localTime = new Date();
@@ -287,11 +259,7 @@ const ContestRoom = () => {
         }
 
         updateContestStatus(data.contest, data.serverTime);
-
-        // Start timer immediately after loading contest data
-        setTimeout(() => {
-          updateTimer();
-        }, 100);
+        setTimeout(() => updateTimer(), 100);
       } else {
         setError(data.error || 'Failed to fetch contest details');
       }
@@ -306,9 +274,7 @@ const ContestRoom = () => {
   const fetchProblems = async () => {
     try {
       const response = await fetch(API_ENDPOINTS.contestProblems(contestId), {
-        headers: {
-          'Authorization': `Bearer ${await getToken()}`,
-        },
+        headers: { 'Authorization': `Bearer ${await getToken()}` },
       });
       const data = await response.json();
 
@@ -317,49 +283,34 @@ const ContestRoom = () => {
         if (data.problems.length > 0) {
           setCode(data.problems[0].functionSignature?.javascript || '');
         }
-        // Trigger fullscreen if contest just started and user is registered
         if (contestStatus === 'active' && isRegistered && isFullscreenSupported) {
           enterFullscreen();
         }
-      } else {
-        console.error('Failed to fetch problems:', data.error);
       }
     } catch (err) {
       console.error('Fetch problems error:', err);
     }
   };
 
-
-
   const updateContestStatus = (contestData, serverTime = null) => {
-    // Use server time if provided, otherwise use local time with offset
     const now = serverTime ? new Date(serverTime) : new Date(Date.now() + serverTimeOffset);
     const start = new Date(contestData.startTime);
     const end = new Date(contestData.endTime);
 
     let status;
-    if (now < start) {
-      status = 'upcoming';
-    } else if (now <= end) {
-      status = 'active';
-    } else {
-      status = 'finished';
-    }
+    if (now < start) status = 'upcoming';
+    else if (now <= end) status = 'active';
+    else status = 'finished';
 
-    // Use server-provided status if available, otherwise calculate
     const finalStatus = contestData.currentStatus || status;
     setContestStatus(finalStatus);
   };
 
-
-
   const formatTime = (ms) => {
     if (!ms || ms <= 0) return '00:00:00';
-
     const hours = Math.floor(ms / (1000 * 60 * 60));
     const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
     const seconds = Math.floor((ms % (1000 * 60)) / 1000);
-
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
@@ -383,7 +334,6 @@ const ContestRoom = () => {
       }
     } catch (err) {
       setError('Failed to register');
-      console.error('Register error:', err);
     }
   };
 
@@ -408,14 +358,18 @@ const ContestRoom = () => {
       }
     } catch (err) {
       setError('Failed to start virtual contest');
-      console.error('Start virtual error:', err);
     }
+  };
+
+  const handleExitContest = async () => {
+    // Exit fullscreen first
+    await exitFullscreen();
+    setExitModalOpen(false);
+    navigate('/contests');
   };
 
   const handleSubmit = async () => {
     if (!code.trim() || !problems[currentProblem]) return;
-
-    // Prevent submission if disqualified
     if (isDisqualified) {
       setError('Cannot submit: You have been disqualified from this contest.');
       return;
@@ -434,7 +388,7 @@ const ContestRoom = () => {
           language,
           isVirtual,
           virtualStartTime: virtualStartTime?.toISOString(),
-          antiCheatViolations: antiCheatViolations,
+          antiCheatViolations,
         }),
       });
       const data = await response.json();
@@ -442,18 +396,13 @@ const ContestRoom = () => {
       if (response.ok) {
         setActiveTab('submissions');
         refreshSubmissions();
-        // Show success message
         setError('');
       } else {
         setError(data.error || 'Failed to submit code');
-        // Check if disqualified from server response
-        if (data.disqualified) {
-          setIsDisqualified(true);
-        }
+        if (data.disqualified) setIsDisqualified(true);
       }
     } catch (err) {
       setError('Failed to submit code');
-      console.error('Submit error:', err);
     } finally {
       setSubmitting(false);
     }
@@ -462,7 +411,6 @@ const ContestRoom = () => {
   const handleProblemChange = (index) => {
     setCurrentProblem(index);
     const problem = problems[index];
-    // Use languageBoilerplate (full driver code) if available, otherwise fallback to functionSignatures
     const template = problem?.languageBoilerplate?.[language] ||
                     problem?.functionSignatures?.[language] ||
                     problem?.functionSignature || '';
@@ -474,7 +422,6 @@ const ContestRoom = () => {
       setError('Please write some code to run');
       return;
     }
-
     if (!problems[currentProblem]?.id) {
       setError('Problem information not available');
       return;
@@ -501,7 +448,6 @@ const ContestRoom = () => {
       setRunOutput(result);
       setShowOutput(true);
     } catch (error) {
-      console.error('Failed to run code:', error);
       setError('Failed to run code: ' + error.message);
     } finally {
       setIsRunning(false);
@@ -509,24 +455,12 @@ const ContestRoom = () => {
   };
 
   const getLanguageId = (lang) => {
-    const languageMap = {
-      javascript: 63,
-      python: 71,
-      java: 62,
-      cpp: 54,
-      c: 50,
-    };
+    const languageMap = { javascript: 63, python: 71, java: 62, cpp: 54, c: 50 };
     return languageMap[lang] || 63;
   };
 
   const getMonacoLanguage = (lang) => {
-    const monacoLanguageMap = {
-      javascript: 'javascript',
-      python: 'python',
-      java: 'java',
-      cpp: 'cpp',
-      c: 'c',
-    };
+    const monacoLanguageMap = { javascript: 'javascript', python: 'python', java: 'java', cpp: 'cpp', c: 'c' };
     return monacoLanguageMap[lang] || 'javascript';
   };
 
@@ -543,377 +477,385 @@ const ContestRoom = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-foreground mb-4">Contest Not Found</h2>
-          <Button onClick={() => navigate('/contests')}>
-            Back to Contests
-          </Button>
+          <Button onClick={() => navigate('/contests')}>Back to Contests</Button>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      <SEO title={`${contest.title} - Contest`} description={contest.description} />
-      
-      {/* Anti-cheat warning */}
-      {antiCheatWarning && (
-        <div className="fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50">
-          {antiCheatWarning}
-        </div>
-      )}
-
-      {/* Contest Header */}
-      <div className="bg-card border-b border-border">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">
-                {contest.title}
-              </h1>
-              <p className="text-muted-foreground mt-1">
-                {contest.description}
-              </p>
-            </div>
-            
-            <div className="mt-4 sm:mt-0 text-right">
-              <div className="text-lg font-mono text-foreground">
-                {timeRemaining ? formatTime(timeRemaining) : '00:00:00'}
+  // Show registration/virtual contest UI if not registered and not participating virtually
+  if (!isRegistered && !isVirtual && contestStatus !== 'finished') {
+    return (
+      <div className="min-h-screen bg-background">
+        <SEO title={`${contest.title} - Contest`} description={contest.description} />
+        
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-2xl mx-auto">
+            <div className="bg-card rounded-lg shadow-lg border border-border p-8">
+              <h1 className="text-3xl font-bold text-foreground mb-4">{contest.title}</h1>
+              <p className="text-muted-foreground mb-6">{contest.description}</p>
+              
+              <div className="bg-muted rounded-lg p-4 mb-6">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Status:</span>
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    contestStatus === 'upcoming' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
+                    contestStatus === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                    'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
+                  }`}>
+                    {contestStatus.charAt(0).toUpperCase() + contestStatus.slice(1)}
+                  </span>
+                </div>
+                {timeRemaining && (
+                  <div className="flex items-center justify-between mt-3">
+                    <span className="text-muted-foreground">
+                      {contestStatus === 'upcoming' ? 'Starts in:' : 'Time remaining:'}
+                    </span>
+                    <span className="font-mono text-lg text-foreground">{formatTime(timeRemaining)}</span>
+                  </div>
+                )}
               </div>
-              <div className="text-sm text-muted-foreground">
-                {contestStatus === 'upcoming' && 'Starts in'}
-                {contestStatus === 'active' && 'Time remaining'}
-                {contestStatus === 'finished' && 'Contest ended'}
+
+              {canRegister && contestStatus === 'upcoming' && (
+                <Button onClick={handleRegister} className="w-full" size="lg">
+                  Register for Contest
+                </Button>
+              )}
+
+              {!canRegister && contestStatus === 'upcoming' && (
+                <p className="text-center text-muted-foreground">Registration is closed.</p>
+              )}
+
+              {contestStatus === 'active' && (
+                <p className="text-center text-muted-foreground">
+                  Contest is running. You need to have registered before the contest started.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show finished contest with virtual option
+  if (contestStatus === 'finished' && !isVirtual) {
+    return (
+      <div className="min-h-screen bg-background">
+        <SEO title={`${contest.title} - Results`} description={contest.description} />
+        
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-card rounded-lg shadow-lg border border-border p-8 mb-6">
+              <div className="flex items-center justify-center mb-4">
+                <CheckCircle className="w-12 h-12 text-green-500" />
+              </div>
+              <h1 className="text-3xl font-bold text-foreground text-center mb-2">{contest.title}</h1>
+              <p className="text-center text-green-600 dark:text-green-400 font-medium">Contest Finished</p>
+              
+              {contest?.allowVirtualParticipation && (
+                <div className="mt-6 text-center">
+                  <Button onClick={handleStartVirtual} size="lg">
+                    Start Virtual Contest
+                  </Button>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Practice with the same problems and time limit
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Leaderboard */}
+            <div className="bg-card rounded-lg shadow-lg border border-border">
+              <div className="p-4 border-b border-border">
+                <h2 className="text-xl font-bold text-foreground">Final Results</h2>
+              </div>
+              <div className="max-h-[500px] overflow-y-auto">
+                {leaderboard.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground">No submissions</div>
+                ) : (
+                  <table className="w-full">
+                    <thead className="bg-muted sticky top-0">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Rank</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Username</th>
+                        <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Score</th>
+                        <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Penalty</th>
+                        <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Solved</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {leaderboard.map((entry) => (
+                        <tr key={entry.userId} className={entry.username === user?.username ? 'bg-primary/10' : ''}>
+                          <td className="px-4 py-3 text-sm font-medium">#{entry.rank}</td>
+                          <td className="px-4 py-3 text-sm">{entry.username}</td>
+                          <td className="px-4 py-3 text-sm text-right font-mono">{entry.totalScore}</td>
+                          <td className="px-4 py-3 text-sm text-right text-muted-foreground">{entry.totalPenalty}</td>
+                          <td className="px-4 py-3 text-sm text-right">{entry.problemsSolved}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
           </div>
         </div>
       </div>
+    );
+  }
 
-      {/* Contest Content */}
-      <div className="container mx-auto px-4 py-6">
-        {/* Registration/Virtual Contest */}
-        {!isRegistered && !isVirtual && (
-          <div className="bg-card rounded-lg shadow-sm border border-border p-6 mb-6">
-            {canRegister && contestStatus === 'upcoming' && (
-              <div className="text-center">
-                <h3 className="text-lg font-semibold text-foreground mb-2">
-                  Register for Contest
-                </h3>
-                <p className="text-muted-foreground mb-4">
-                  You need to register before the contest starts to participate.
-                </p>
-                <button
-                  onClick={handleRegister}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium"
-                >
-                  Register Now
-                </button>
-              </div>
-            )}
+  // Main contest interface - CodeChef style
+  return (
+    <div className="h-screen flex flex-col bg-background overflow-hidden">
+      <SEO title={`${contest.title} - Contest`} description={contest.description} />
+      
+      {/* Anti-cheat warning toast */}
+      {antiCheatWarning && (
+        <div className="fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse">
+          {antiCheatWarning}
+        </div>
+      )}
 
-            {!canRegister && contestStatus === 'upcoming' && (
-              <div className="text-center">
-                <h3 className="text-lg font-semibold text-foreground mb-2">
-                  Registration Closed
-                </h3>
-                <p className="text-muted-foreground mb-4">
-                  Registration for this contest is no longer available.
-                </p>
-              </div>
-            )}
+      {/* Exit Contest Modal */}
+      {exitModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-lg p-6 max-w-md w-full mx-4 border border-border shadow-xl">
+            <h3 className="text-xl font-bold text-foreground mb-4">Exit Contest?</h3>
+            <p className="text-muted-foreground mb-6">
+              Are you sure you want to exit the contest? Your submissions will be saved, but you won't be able to make new submissions after leaving.
+            </p>
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={() => setExitModalOpen(false)} className="flex-1">
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleExitContest} className="flex-1">
+                Exit Contest
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
-            {contestStatus === 'active' && (
-              <div className="text-center">
-                <h3 className="text-lg font-semibold text-foreground mb-2">
-                  Contest is Active
-                </h3>
-                <p className="text-muted-foreground mb-4">
-                  This contest is currently running. You can view the leaderboard but cannot participate since you didn't register.
-                </p>
-                <div className="text-sm text-muted-foreground">
-                  Registration was required before the contest started.
-                </div>
-              </div>
-            )}
-
-            {contestStatus === 'finished' && contest.allowVirtualParticipation && (
-              <div className="text-center">
-                <h3 className="text-lg font-semibold text-foreground mb-2">
-                  Virtual Contest
-                </h3>
-                <p className="text-muted-foreground mb-4">
-                  This contest has ended, but you can participate virtually.
-                </p>
-                <Button
-                  onClick={handleStartVirtual}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  Start Virtual Contest
-                </Button>
-              </div>
+      {/* Top Header Bar */}
+      <div className="flex-shrink-0 bg-card border-b border-border">
+        <div className="flex items-center justify-between px-4 py-2">
+          {/* Left: Contest info */}
+          <div className="flex items-center gap-4">
+            <h1 className="text-lg font-bold text-foreground truncate max-w-[300px]">
+              {contest.title}
+            </h1>
+            {isVirtual && (
+              <span className="px-2 py-0.5 bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 text-xs rounded-full">
+                Virtual
+              </span>
             )}
           </div>
-        )}
 
-        {/* Disqualification Banner */}
-        {isDisqualified && (
-          <div className="bg-destructive/20 border-2 border-destructive text-destructive px-6 py-4 rounded-lg mb-6 flex items-center space-x-3">
-            <div className="flex-shrink-0">
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="font-bold text-lg">Disqualified</h3>
-              <p className="text-sm">You have been disqualified from this contest due to anti-cheat violations. You cannot submit solutions.</p>
-            </div>
+          {/* Center: Timer */}
+          <div className="flex items-center gap-2">
+            <Clock className="w-5 h-5 text-muted-foreground" />
+            <span className={`font-mono text-xl font-bold ${
+              timeRemaining && timeRemaining < 300000 ? 'text-red-500 animate-pulse' : 'text-foreground'
+            }`}>
+              {formatTime(timeRemaining)}
+            </span>
           </div>
-        )}
 
-        {/* Error Message */}
-        {error && !isDisqualified && (
-          <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg mb-6">
-            {error}
-          </div>
-        )}
-
-        {/* Anti-cheat Warning */}
-        {antiCheatWarning && (
-          <div className="bg-white dark:bg-yellow-900/20 border-2 border-yellow-600 dark:border-yellow-800 text-yellow-900 dark:text-yellow-200 px-4 py-3 rounded-lg mb-6 flex items-center space-x-2">
-            <AlertTriangle className="h-5 w-5" />
-            <span>{antiCheatWarning}</span>
-          </div>
-        )}
-
-        {/* Disqualification Notice */}
-        {isDisqualified && (
-          <div className="bg-white dark:bg-red-900/30 border-2 border-red-600 dark:border-red-700 text-red-900 dark:text-red-200 px-4 py-3 rounded-lg mb-6 flex items-center space-x-2">
-            <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
-            <div>
-              <div className="font-semibold">Contest Disqualification</div>
-              <div className="text-sm text-red-800 dark:text-red-200">You have been disqualified from this contest due to anti-cheat violations. Your submissions will not be counted.</div>
-            </div>
-          </div>
-        )}
-
-        {/* Anti-cheat Status Indicator */}
-        {antiCheatActive && (isRegistered || isVirtual) && (
-          <div className="bg-primary/10 border border-primary/20 text-primary px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Shield className={`h-5 w-5 ${hasFocus && isFullscreen ? 'text-green-600' : 'text-yellow-600'}`} />
-              <span className="font-medium">Anti-cheat Protection Active</span>
-            </div>
-            <div className="text-sm">
-              Status: {hasFocus && isFullscreen ? 'Secure' : 'Monitoring'}
-              {!isFullscreenSupported && ' (Fullscreen not supported)'}
-            </div>
-          </div>
-        )}
-
-        {/* Contest Interface - Show for registered users or when contest is active/finished */}
-        {(isRegistered || isVirtual || contestStatus === 'active' || contestStatus === 'finished') && (
-          <div>
-            {/* Contest Tabs */}
-            <div className="mb-6">
-              <div className="border-b border-border">
-                <nav className="-mb-px flex space-x-8">
-                  {(isRegistered || isVirtual) && (
-                    <button
-                      onClick={() => setActiveTab('problem')}
-                      className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                        activeTab === 'problem'
-                          ? 'border-primary text-primary'
-                          : 'border-transparent text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      Problems
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setActiveTab('leaderboard')}
-                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                      activeTab === 'leaderboard'
-                        ? 'border-primary text-primary'
-                        : 'border-transparent text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    Leaderboard
-                    {isPolling && (
-                      <span className="ml-1 inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                    )}
-                  </button>
-                  {(isRegistered || isVirtual) && (
-                    <button
-                      onClick={() => setActiveTab('submissions')}
-                      className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                        activeTab === 'submissions'
-                          ? 'border-primary text-primary'
-                          : 'border-transparent text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      My Submissions ({submissions.length})
-                    </button>
-                  )}
-                </nav>
+          {/* Right: Actions */}
+          <div className="flex items-center gap-3">
+            {antiCheatActive && (
+              <div className="flex items-center gap-1 text-sm">
+                <Shield className={`w-4 h-4 ${hasFocus && isFullscreen ? 'text-green-500' : 'text-yellow-500'}`} />
+                <span className="text-muted-foreground hidden sm:inline">Anti-cheat active</span>
               </div>
-            </div>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setExitModalOpen(true)}
+              className="text-red-500 border-red-500 hover:bg-red-500/10"
+            >
+              <LogOut className="w-4 h-4 mr-1" />
+              Exit
+            </Button>
+          </div>
+        </div>
 
-            {/* Tab Content */}
-            {activeTab === 'problem' && (
-              <div>
-                {(isRegistered || isVirtual) && problems.length > 0 && (contestStatus === 'active' || contestStatus === 'finished' || isVirtual) ? (
-                  <div>
-                    {/* Contest Finished Message */}
-                    {contestStatus === 'finished' && (
-                      <div className="mb-6 bg-gray-800 dark:bg-card border-2 border-green-600 dark:border-border rounded-lg p-6">
-                        <div className="text-center">
-                          <div className="w-16 h-16 bg-green-700 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <CheckCircle className="w-8 h-8 text-green-300 dark:text-green-400" />
-                          </div>
-                          <h3 className="text-xl font-semibold text-green-200 dark:text-foreground mb-2">
-                            Contest Completed
-                          </h3>
-                          <p className="text-green-300 dark:text-muted-foreground mb-4">
-                            This contest has ended. View the final results below or start a virtual contest to practice.
-                          </p>
-                          {contest?.allowVirtualParticipation && !isVirtual && (
-                            <Button
-                              onClick={handleStartVirtual}
-                            >
-                              Start Virtual Contest
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    )}
+        {/* Tabs */}
+        <div className="flex border-t border-border">
+          {['problem', 'leaderboard', 'submissions'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-6 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === tab
+                  ? 'border-primary text-primary bg-primary/5'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {tab === 'problem' ? 'Problems' : tab === 'leaderboard' ? 'Leaderboard' : 'My Submissions'}
+              {tab === 'submissions' && ` (${submissions.length})`}
+            </button>
+          ))}
+        </div>
+      </div>
 
-                    <div className={`grid grid-cols-1 gap-6 ${contestStatus === 'finished' ? 'lg:grid-cols-1' : 'lg:grid-cols-2'}`}>
-            {/* Left Panel - Problem */}
-            <div className="bg-card rounded-lg shadow-sm border border-border">
+      {/* Disqualification Banner */}
+      {isDisqualified && (
+        <div className="flex-shrink-0 bg-red-500/10 border-b border-red-500 px-4 py-2 flex items-center gap-2 text-red-500">
+          <AlertTriangle className="w-5 h-5" />
+          <span className="font-medium">Disqualified - You cannot submit solutions</span>
+        </div>
+      )}
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex overflow-hidden">
+        {activeTab === 'problem' && (
+          <>
+            {/* Problem Panel */}
+            <div className={`${showProblemList ? 'w-[40%]' : 'w-[25%]'} flex-shrink-0 flex flex-col border-r border-border transition-all duration-300`}>
               {/* Problem Tabs */}
-              <div className="border-b border-border">
-                <div className="flex overflow-x-auto">
+              <div className="flex-shrink-0 flex items-center bg-muted/50 border-b border-border">
+                <button
+                  onClick={() => setShowProblemList(!showProblemList)}
+                  className="p-2 hover:bg-muted transition-colors flex-shrink-0"
+                  title={showProblemList ? 'Collapse problem list' : 'Expand problem list'}
+                >
+                  {showProblemList ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                </button>
+                <div className="flex overflow-x-auto flex-1 scrollbar-none">
                   {problems.map((problem, index) => (
                     <button
                       key={problem.id}
                       onClick={() => handleProblemChange(index)}
-                      className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 ${
+                      className={`px-3 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors flex-shrink-0 ${
                         currentProblem === index
-                          ? 'border-primary text-primary'
-                          : 'border-transparent text-muted-foreground hover:text-foreground'
+                          ? 'border-primary text-primary bg-primary/5'
+                          : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
                       }`}
+                      title={problem.title}
                     >
-                      {String.fromCharCode(65 + index)}. {problem.title}
+                      {String.fromCharCode(65 + index)}
+                      {showProblemList && <span className="ml-1 truncate max-w-[80px] inline-block align-bottom">{problem.title}</span>}
                     </button>
                   ))}
                 </div>
               </div>
 
               {/* Problem Content */}
-              <div className="p-6 max-h-96 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto p-4">
                 {problems[currentProblem] && (
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground mb-4">
-                      {problems[currentProblem].title}
-                    </h3>
-                    
-                    <div className="prose dark:prose-invert max-w-none">
-                      <div className="whitespace-pre-wrap">
+                  <div className="space-y-6">
+                    <div>
+                      <h2 className="text-xl font-bold text-foreground mb-1">
+                        {String.fromCharCode(65 + currentProblem)}. {problems[currentProblem].title}
+                      </h2>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 text-xs rounded ${
+                          problems[currentProblem].difficulty === 'Easy' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                          problems[currentProblem].difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                          'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                        }`}>
+                          {problems[currentProblem].difficulty}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {problems[currentProblem].points} pts
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="prose dark:prose-invert max-w-none text-sm">
+                      <div className="whitespace-pre-wrap text-foreground">
                         {problems[currentProblem].description}
                       </div>
                     </div>
 
                     {problems[currentProblem].examples && (
-                      <div className="mt-6">
-                        <h4 className="font-semibold text-foreground mb-2">Examples:</h4>
+                      <div>
+                        <h3 className="font-semibold text-foreground mb-3">Examples</h3>
                         {problems[currentProblem].examples.map((example, idx) => (
-                          <div key={idx} className="bg-muted p-3 rounded-lg mb-3">
-                            <div className="text-sm">
-                              <div><strong>Input:</strong> {example.input}</div>
-                              <div><strong>Output:</strong> {example.output}</div>
-                              {example.explanation && (
-                                <div><strong>Explanation:</strong> {example.explanation}</div>
-                              )}
+                          <div key={idx} className="bg-muted rounded-lg p-3 mb-3 text-sm">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <div className="text-xs text-muted-foreground mb-1">Input</div>
+                                <pre className="bg-background p-2 rounded text-foreground font-mono text-xs overflow-x-auto">{example.input}</pre>
+                              </div>
+                              <div>
+                                <div className="text-xs text-muted-foreground mb-1">Output</div>
+                                <pre className="bg-background p-2 rounded text-foreground font-mono text-xs overflow-x-auto">{example.output}</pre>
+                              </div>
                             </div>
+                            {example.explanation && (
+                              <div className="mt-2 text-xs text-muted-foreground">
+                                <span className="font-medium">Explanation:</span> {example.explanation}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
                     )}
 
                     {problems[currentProblem].constraints && (
-                      <div className="mt-4">
-                        <h4 className="font-semibold text-foreground mb-2">Constraints:</h4>
-                        <div className="text-sm text-muted-foreground">
+                      <div>
+                        <h3 className="font-semibold text-foreground mb-2">Constraints</h3>
+                        <div className="text-sm text-muted-foreground whitespace-pre-wrap">
                           {problems[currentProblem].constraints}
                         </div>
                       </div>
                     )}
-
-                    {/* Submission Instructions */}
-                    <div className="mt-6 bg-primary/10 border border-primary/20 rounded-lg p-4">
-                      <h4 className="font-semibold text-primary mb-2">📝 How to Submit</h4>
-                      <ul className="text-sm text-primary space-y-1">
-                        <li>• Complete the function template provided in the code editor</li>
-                        <li>• Use the <strong>Run</strong> button to test your code with examples</li>
-                        <li>• Add custom test cases in the input box below the editor</li>
-                        <li>• Click <strong>Submit</strong> when ready - your code will be tested against hidden test cases</li>
-                        <li>• You can submit multiple times, but each submission counts toward your penalty</li>
-                      </ul>
-                    </div>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Right Panel - Code Editor (Hidden when contest finished) */}
-            {contestStatus !== 'finished' && (
-              <div className="bg-card rounded-lg shadow-sm border border-border">
+            {/* Code Editor Panel */}
+            <div className="flex-1 flex flex-col min-w-0">
               {/* Editor Header */}
-              <div className="border-b border-border p-4">
-                <div className="flex justify-between items-center">
-                  <select
-                    value={language}
-                    onChange={(e) => setLanguage(e.target.value)}
-                    className="bg-background border border-border text-foreground text-sm rounded-lg px-3 py-2"
-                  >
-                    <option value="javascript">JavaScript</option>
-                    <option value="python">Python</option>
-                    <option value="java">Java</option>
-                    <option value="cpp">C++</option>
-                    <option value="c">C</option>
-                  </select>
+              <div className="flex-shrink-0 flex items-center justify-between px-4 py-2 bg-muted/50 border-b border-border">
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                  className="bg-background border border-border text-foreground text-sm rounded px-3 py-1.5"
+                >
+                  <option value="javascript">JavaScript</option>
+                  <option value="python">Python</option>
+                  <option value="java">Java</option>
+                  <option value="cpp">C++</option>
+                  <option value="c">C</option>
+                </select>
 
-                  <div className="flex space-x-2">
-                    {!isDisqualified && (
-                      <button
-                        onClick={runCode}
-                        disabled={isRunning || !code.trim() || !isFullscreen}
-                        className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-                        title={!isFullscreen ? 'Enable fullscreen to run code' : ''}
-                      >
-                        {isRunning ? 'Running...' : 'Run'}
-                      </button>
-                    )}
-                    <button
-                      onClick={handleSubmit}
-                      disabled={submitting || !code.trim() || isDisqualified || !isFullscreen}
-                      className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-                      title={
-                        !isFullscreen
-                          ? 'Enable fullscreen to submit'
-                          : isDisqualified
-                          ? 'Cannot submit - you have been disqualified'
-                          : ''
-                      }
+                <div className="flex items-center gap-2">
+                  {!isDisqualified && (
+                    <Button
+                      onClick={runCode}
+                      disabled={isRunning || !code.trim() || !isFullscreen}
+                      variant="outline"
+                      size="sm"
+                      title={!isFullscreen ? 'Enable fullscreen to run code' : ''}
                     >
-                      {submitting ? 'Submitting...' : isDisqualified ? 'Disqualified' : 'Submit'}
-                    </button>
-                  </div>
+                      <Play className="w-4 h-4 mr-1" />
+                      {isRunning ? 'Running...' : 'Run'}
+                    </Button>
+                  )}
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={submitting || !code.trim() || isDisqualified || !isFullscreen}
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700"
+                    title={
+                      !isFullscreen ? 'Enable fullscreen to submit' :
+                      isDisqualified ? 'Cannot submit - you have been disqualified' : ''
+                    }
+                  >
+                    <Send className="w-4 h-4 mr-1" />
+                    {submitting ? 'Submitting...' : 'Submit'}
+                  </Button>
                 </div>
               </div>
 
-              {/* Code Editor */}
-              <div className="h-96 border border-border rounded-lg overflow-hidden">
+              {/* Monaco Editor - Takes most of the space */}
+              <div className="flex-1 min-h-0">
                 <Editor
                   height="100%"
                   language={getMonacoLanguage(language)}
@@ -929,315 +871,161 @@ const ContestRoom = () => {
                     automaticLayout: true,
                     readOnly: submitting,
                     contextmenu: false,
+                    padding: { top: 10 },
                   }}
                 />
               </div>
 
-              {/* Custom Input */}
-              <div className="border-t border-border p-4">
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Custom Input (Optional)
-                </label>
-                <textarea
-                  value={customInput}
-                  onChange={(e) => setCustomInput(e.target.value)}
-                  placeholder="Enter custom input for testing..."
-                  className="w-full h-20 px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm resize-none"
-                />
-              </div>
-
-              {/* Output Display */}
+              {/* Output Panel (collapsible) */}
               {showOutput && runOutput && (
-                <div className="border-t border-border p-4">
-                  <div className="flex justify-between items-center mb-2">
+                <div className="flex-shrink-0 border-t border-border bg-muted/50 max-h-[200px] overflow-y-auto">
+                  <div className="flex items-center justify-between px-4 py-2 border-b border-border sticky top-0 bg-muted/50">
                     <h4 className="text-sm font-medium text-foreground">
                       Test Results ({runOutput.passedCount}/{runOutput.totalCount} passed)
                     </h4>
-                    <button
-                      onClick={() => setShowOutput(false)}
-                      className="text-muted-foreground hover:text-foreground"
-                    >
-                      ✕
-                    </button>
+                    <button onClick={() => setShowOutput(false)} className="text-muted-foreground hover:text-foreground">✕</button>
                   </div>
-                  <div className="bg-muted rounded-lg p-3 max-h-60 overflow-y-auto">
+                  <div className="p-3">
                     {runOutput.testResults?.map((result, index) => (
-                      <div key={index} className="mb-4 last:mb-0 border-b border-border last:border-b-0 pb-3 last:pb-0">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="text-xs font-medium text-muted-foreground">
-                            Test Case {index + 1}
-                          </div>
-                          <div className={`text-xs px-2 py-1 rounded-full font-medium ${
-                            result.passed
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-                              : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
-                          }`}>
-                            {result.passed ? '✓ PASS' : '✗ FAIL'}
-                          </div>
+                      <div key={index} className="mb-3 last:mb-0 p-2 bg-background rounded text-xs">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium">Test {index + 1}</span>
+                          <span className={`px-2 py-0.5 rounded ${result.passed ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
+                            {result.passed ? 'PASS' : 'FAIL'}
+                          </span>
                         </div>
-
-                        <div className="space-y-2 text-xs">
-                          <div>
-                            <span className="font-medium text-muted-foreground">Input:</span>
-                            <pre className="mt-1 text-foreground bg-background p-2 rounded border border-border font-mono">{result.input}</pre>
+                        {!result.passed && (
+                          <div className="space-y-1 mt-2">
+                            <div><span className="text-muted-foreground">Expected:</span> <code className="text-foreground">{result.expectedOutput}</code></div>
+                            <div><span className="text-muted-foreground">Got:</span> <code className={result.passed ? 'text-green-600' : 'text-red-600'}>{result.actualOutput || '(no output)'}</code></div>
+                            {result.error && <div className="text-red-500">Error: {result.error}</div>}
                           </div>
-
-                          <div>
-                            <span className="font-medium text-muted-foreground">Expected:</span>
-                            <pre className="mt-1 text-foreground bg-background p-2 rounded border border-border font-mono">{result.expectedOutput}</pre>
-                          </div>
-
-                          <div>
-                            <span className={`font-medium ${result.passed ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                              Your Output:
-                            </span>
-                            <pre className={`mt-1 p-2 rounded border font-mono ${
-                              result.passed
-                                ? 'text-green-900 dark:text-green-100 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                                : 'text-red-900 dark:text-red-100 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                            }`}>{result.actualOutput || '(no output)'}</pre>
-                          </div>
-
-                          {result.error && (
-                            <div>
-                              <span className="font-medium text-red-600 dark:text-red-400">Error:</span>
-                              <pre className="mt-1 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-2 rounded border font-mono">{result.error}</pre>
-                            </div>
-                          )}
-                        </div>
+                        )}
                       </div>
                     ))}
                   </div>
                 </div>
               )}
+
+              {/* Custom Input */}
+              <div className="flex-shrink-0 border-t border-border p-3 bg-muted/50">
+                <div className="text-xs text-muted-foreground mb-1">Custom Input (optional)</div>
+                <textarea
+                  value={customInput}
+                  onChange={(e) => setCustomInput(e.target.value)}
+                  placeholder="Enter test input..."
+                  className="w-full h-16 px-2 py-1 text-sm bg-background border border-border rounded text-foreground resize-none"
+                />
+              </div>
             </div>
-            )}
-          </div>
-          </div>
+          </>
+        )}
+
+        {activeTab === 'leaderboard' && (
+          <div className="flex-1 p-6 overflow-y-auto">
+            <div className="max-w-4xl mx-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-foreground">Leaderboard</h2>
+                <Button variant="outline" size="sm" onClick={refreshLeaderboard}>
+                  Refresh
+                </Button>
+              </div>
+              {getUserRank() && (
+                <div className="mb-4 p-3 bg-primary/10 rounded-lg">
+                  <span className="text-sm text-muted-foreground">Your rank: </span>
+                  <span className="font-bold text-foreground">#{getUserRank()}</span>
+                  <span className="text-sm text-muted-foreground ml-4">Score: </span>
+                  <span className="font-bold text-foreground">{getUserScore()?.totalScore || 0}</span>
+                </div>
+              )}
+              <div className="bg-card rounded-lg border border-border overflow-hidden">
+                {leaderboard.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground">No submissions yet</div>
                 ) : (
-                  <div className="bg-card rounded-lg shadow-sm border border-border p-8 text-center">
-                    <h3 className="text-lg font-semibold text-foreground mb-4">
-                      Problems Not Available
-                    </h3>
-                    <p className="text-muted-foreground">
-                      {contestStatus === 'upcoming' && isRegistered
-                        ? 'You are registered! Problems will be available when the contest starts.'
-                        : contestStatus === 'upcoming'
-                        ? 'Problems will be available when the contest starts and you are registered.'
-                        : 'You need to be registered to view contest problems.'
-                      }
-                    </p>
-                    {contestStatus === 'upcoming' && isRegistered && (
-                      <div className="mt-4 p-3 bg-primary/10 border border-primary/20 rounded-lg">
-                        <div className="flex items-center justify-center space-x-2">
-                          <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-                          <span className="text-sm font-medium text-primary">
-                            Waiting for contest to start...
-                          </span>
+                  <table className="w-full">
+                    <thead className="bg-muted">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Rank</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Username</th>
+                        <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Score</th>
+                        <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Penalty</th>
+                        <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Solved</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {leaderboard.map((entry) => (
+                        <tr key={entry.userId} className={entry.username === user?.username ? 'bg-primary/10' : ''}>
+                          <td className="px-4 py-3 text-sm font-medium">#{entry.rank}</td>
+                          <td className="px-4 py-3 text-sm">{entry.username}</td>
+                          <td className="px-4 py-3 text-sm text-right font-mono">{entry.totalScore}</td>
+                          <td className="px-4 py-3 text-sm text-right text-muted-foreground">{entry.totalPenalty}</td>
+                          <td className="px-4 py-3 text-sm text-right">{entry.problemsSolved}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'submissions' && (
+          <div className="flex-1 p-6 overflow-y-auto">
+            <div className="max-w-4xl mx-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-foreground">My Submissions</h2>
+                <Button variant="outline" size="sm" onClick={refreshSubmissions}>
+                  Refresh
+                </Button>
+              </div>
+              {(() => {
+                const stats = getSubmissionStats();
+                return (
+                  <div className="mb-4 text-sm text-muted-foreground">
+                    {stats.total} submissions | {stats.accepted} accepted | {stats.acceptanceRate}% success rate
+                  </div>
+                );
+              })()}
+              <div className="bg-card rounded-lg border border-border overflow-hidden">
+                {submissions.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground">No submissions yet</div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {submissions.map((submission) => (
+                      <div key={submission._id} className="p-4 flex items-center justify-between">
+                        <div>
+                          <div className="font-medium text-foreground">{submission.problemId?.title || 'Problem'}</div>
+                          <div className="text-sm text-muted-foreground">{new Date(submission.submissionTime).toLocaleString()}</div>
                         </div>
-                        {timeRemaining && (
-                          <p className="text-sm text-primary mt-2 text-center">
-                            Contest starts in: {formatTime(timeRemaining)}
-                          </p>
-                        )}
+                        <div className="text-right">
+                          <div className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                            submission.status === 'accepted' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                            submission.status === 'pending' || submission.status === 'judging' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                            'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                          }`}>
+                            {submission.verdict || submission.status.toUpperCase()}
+                          </div>
+                          {submission.isAccepted && (
+                            <div className="text-sm text-muted-foreground mt-1">{submission.points} pts</div>
+                          )}
+                        </div>
                       </div>
-                    )}
+                    ))}
                   </div>
                 )}
               </div>
-            )}
-
-            {/* Leaderboard Tab */}
-            {activeTab === 'leaderboard' && (
-              <div className="bg-card rounded-lg shadow-sm border border-border">
-                <div className="p-4 border-b border-border">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-semibold text-foreground">
-                      {contestStatus === 'finished' ? 'Final Results' : 'Leaderboard'}
-                    </h3>
-                    {contestStatus !== 'finished' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={refreshLeaderboard}
-                      >
-                        Refresh
-                      </Button>
-                    )}
-                  </div>
-                  {getUserRank() && (
-                    <div className="mt-2 text-sm text-muted-foreground">
-                      Your rank: #{getUserRank()} | Score: {getUserScore()?.totalScore || 0}
-                    </div>
-                  )}
-                  {contestStatus === 'finished' && (
-                    <div 
-                      className="mt-2 p-3 border-2 rounded-lg"
-                      style={{
-                        backgroundColor: theme === 'dark' ? 'rgb(20, 83, 45, 0.2)' : '#1f2937',
-                        borderColor: theme === 'dark' ? '#166534' : '#22c55e',
-                      }}
-                    >
-                      <div className="flex items-center space-x-2">
-                        <div 
-                          className="w-2 h-2 rounded-full"
-                          style={{ backgroundColor: '#4ade80' }}
-                        ></div>
-                        <span 
-                          className="text-sm font-medium"
-                          style={{ color: theme === 'dark' ? '#bbf7d0' : '#d1fae5' }}
-                        >
-                          Contest Finished
-                        </span>
-                      </div>
-                      <p 
-                        className="text-sm mt-1"
-                        style={{ color: theme === 'dark' ? '#86efac' : '#a7f3d0' }}
-                      >
-                        Final results are displayed below. CP ratings have been updated.
-                      </p>
-                      {contest?.allowVirtualParticipation && !isVirtual && (
-                        <div className="mt-3">
-                          <Button
-                            size="sm"
-                            onClick={handleStartVirtual}
-                          >
-                            Start Virtual Contest
-                          </Button>
-                          <p 
-                            className="text-xs mt-1"
-                            style={{ color: theme === 'dark' ? '#4ade80' : '#86efac' }}
-                          >
-                            Practice with the same problems and time limit
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="max-h-96 overflow-y-auto">
-                  {leaderboard.length === 0 ? (
-                    <div className="p-8 text-center text-muted-foreground">
-                      No submissions yet
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-border">
-                      {leaderboard.map((entry, index) => (
-                        <div
-                          key={entry.userId}
-                          className={`p-4 ${
-                            entry.username === user?.username
-                              ? 'bg-primary/10'
-                              : ''
-                          }`}
-                        >
-                          <div className="flex justify-between items-center">
-                            <div className="flex items-center space-x-3">
-                              <span className="font-mono text-sm text-muted-foreground w-8">
-                                #{entry.rank}
-                              </span>
-                              <span className="font-medium text-foreground">
-                                {entry.username}
-                              </span>
-                            </div>
-                            <div className="text-right">
-                              <div className="font-mono text-sm text-foreground">
-                                {entry.totalScore} pts
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {entry.problemsSolved} solved | {entry.totalPenalty} penalty
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Submissions Tab */}
-            {activeTab === 'submissions' && (
-              <div className="bg-card rounded-lg shadow-sm border border-border">
-                <div className="p-4 border-b border-border">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-semibold text-foreground">
-                      My Submissions
-                    </h3>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={refreshSubmissions}
-                    >
-                      Refresh
-                    </Button>
-                  </div>
-                  {(() => {
-                    const stats = getSubmissionStats();
-                    return (
-                      <div className="mt-2 text-sm text-muted-foreground">
-                        {stats.total} submissions | {stats.accepted} accepted | {stats.acceptanceRate}% success rate
-                      </div>
-                    );
-                  })()}
-                </div>
-                <div className="max-h-96 overflow-y-auto">
-                  {submissions.length === 0 ? (
-                    <div className="p-8 text-center text-muted-foreground">
-                      No submissions yet
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-border">
-                      {submissions.map((submission) => (
-                        <div key={submission._id} className="p-4">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <div className="font-medium text-foreground">
-                                {submission.problemId?.title || 'Problem'}
-                              </div>
-                              <div className="text-sm text-muted-foreground mt-1">
-                                {new Date(submission.submissionTime).toLocaleString()}
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                                submission.status === 'accepted'
-                                  ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-                                  : submission.status === 'pending' || submission.status === 'judging'
-                                  ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
-                                  : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
-                              }`}>
-                                {submission.verdict || submission.status.toUpperCase()}
-                              </div>
-                              {submission.isAccepted && (
-                                <div className="text-sm text-muted-foreground mt-1">
-                                  {submission.points} pts
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          {submission.passedTestCases !== undefined && (
-                            <div className="mt-2 text-sm text-muted-foreground">
-                              Test cases: {submission.passedTestCases}/{submission.totalTestCases}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         )}
+      </div>
+
       {/* Fullscreen Modal */}
       <FullscreenPromptModal
         isOpen={showFullscreenModal}
         onEnterFullscreen={() => setShowFullscreenModal(false)}
         onClose={() => setShowFullscreenModal(false)}
       />
-    </div>
     </div>
   );
 };

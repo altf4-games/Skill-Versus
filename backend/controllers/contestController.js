@@ -338,15 +338,15 @@ export const generateLeaderboard = async (contestId, isVirtual = false) => {
 
     if (submission.isAccepted && !problemData.solved) {
       problemData.solved = true;
-      problemData.points = submission.points;
       problemData.attempts++;
-      // CP penalty: submission time + (wrong attempts * penalty per wrong submission)
-      problemData.penalty =
-        submission.timeFromStart +
-        problemData.wrongAttempts * penaltyPerWrongSubmission;
+      // Calculate penalty points deducted for wrong submissions
+      const penaltyDeduction = problemData.wrongAttempts * penaltyPerWrongSubmission;
+      problemData.penalty = penaltyDeduction;
+      // Points awarded = problem points - penalty deduction (minimum 0)
+      problemData.points = Math.max(0, submission.points - penaltyDeduction);
       problemData.firstAcceptedTime = submission.submissionTime;
 
-      userStats[userId].totalScore += submission.points;
+      userStats[userId].totalScore += problemData.points;
       userStats[userId].problemsSolved++;
       userStats[userId].lastSubmissionTime = submission.submissionTime;
     } else if (!submission.isAccepted && !problemData.solved) {
@@ -365,7 +365,9 @@ export const generateLeaderboard = async (contestId, isVirtual = false) => {
         .reduce((sum, p) => sum + p.penalty, 0),
     }))
     .sort((a, b) => {
+      // Sort by total score (higher is better)
       if (a.totalScore !== b.totalScore) return b.totalScore - a.totalScore;
+      // Then by penalty (lower is better - means fewer wrong submissions)
       if (a.totalPenalty !== b.totalPenalty)
         return a.totalPenalty - b.totalPenalty;
       return new Date(a.lastSubmissionTime) - new Date(b.lastSubmissionTime);
@@ -544,6 +546,58 @@ export const updateContestStatus = async (req, res) => {
   } catch (error) {
     console.error("Update contest status error:", error);
     res.status(500).json({ error: "Failed to update contest status" });
+  }
+};
+
+// Extend contest time (admin only)
+export const extendContestTime = async (req, res) => {
+  try {
+    const { contestId } = req.params;
+    const { additionalMinutes } = req.body;
+    const userId = req.auth.userId;
+
+    // Check if user is contest admin
+    const user = await User.findOne({ clerkId: userId });
+    if (!user || !user.contestAdmin) {
+      return res
+        .status(403)
+        .json({ error: "Access denied. Contest admin required." });
+    }
+
+    if (!additionalMinutes || additionalMinutes <= 0 || additionalMinutes > 180) {
+      return res.status(400).json({ error: "Invalid extension time. Must be between 1 and 180 minutes." });
+    }
+
+    const contest = await Contest.findById(contestId);
+    if (!contest) {
+      return res.status(404).json({ error: "Contest not found" });
+    }
+
+    // Can only extend active or upcoming contests
+    if (contest.status === "finished") {
+      return res.status(400).json({ error: "Cannot extend a finished contest" });
+    }
+
+    // Calculate new end time
+    const currentEndTime = new Date(contest.endTime);
+    const newEndTime = new Date(currentEndTime.getTime() + additionalMinutes * 60 * 1000);
+    const newDuration = contest.duration + additionalMinutes;
+
+    // Update contest
+    contest.endTime = newEndTime;
+    contest.duration = newDuration;
+    await contest.save();
+
+    console.log(`Contest ${contestId} extended by ${additionalMinutes} minutes. New end time: ${newEndTime}`);
+
+    res.json({
+      message: `Contest extended by ${additionalMinutes} minutes`,
+      newEndTime: newEndTime.toISOString(),
+      newDuration,
+    });
+  } catch (error) {
+    console.error("Extend contest time error:", error);
+    res.status(500).json({ error: "Failed to extend contest time" });
   }
 };
 

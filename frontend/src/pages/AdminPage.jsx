@@ -836,6 +836,46 @@ function ContestsTab({ getToken }) {
                   >
                     View Leaderboard
                   </button>
+                  {(contest.status === 'active' || contest.status === 'upcoming') && (
+                    <button
+                      onClick={async () => {
+                        const minutes = prompt('Enter additional minutes to extend (1-180):');
+                        if (!minutes) return;
+                        const additionalMinutes = parseInt(minutes);
+                        if (isNaN(additionalMinutes) || additionalMinutes < 1 || additionalMinutes > 180) {
+                          alert('Invalid time. Must be between 1 and 180 minutes.');
+                          return;
+                        }
+                        try {
+                          const token = await getToken();
+                          const response = await fetch(
+                            `${import.meta.env.VITE_API_URL}/api/contests/${contest._id}/extend`,
+                            {
+                              method: 'PATCH',
+                              headers: {
+                                Authorization: `Bearer ${token}`,
+                                'Content-Type': 'application/json',
+                              },
+                              body: JSON.stringify({ additionalMinutes }),
+                            }
+                          );
+                          const data = await response.json();
+                          if (response.ok) {
+                            alert(`Contest extended! New end time: ${new Date(data.newEndTime).toLocaleString()}`);
+                            fetchContests();
+                          } else {
+                            alert(`Failed: ${data.error}`);
+                          }
+                        } catch (error) {
+                          console.error('Failed to extend contest:', error);
+                          alert('Failed to extend contest');
+                        }
+                      }}
+                      className="px-3 py-1 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-sm mr-2"
+                    >
+                      Extend Time
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       const shareLink = `${window.location.origin}/contests/${contest._id}`;

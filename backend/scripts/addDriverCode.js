@@ -45,16 +45,26 @@ public class Solution {
     
     public static void main(String[] args) throws IOException {
         BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
-        String[] numsStr = br.readLine().replace("[", "").replace("]", "").split(",");
+        String line = br.readLine().trim();
+        // Remove brackets and split
+        line = line.replace("[", "").replace("]", "").replace(" ", "");
+        String[] numsStr = line.split(",");
         int[] nums = new int[numsStr.length];
         for (int i = 0; i < numsStr.length; i++) {
             nums[i] = Integer.parseInt(numsStr[i].trim());
         }
-        int target = Integer.parseInt(br.readLine());
+        int target = Integer.parseInt(br.readLine().trim());
         
         Solution sol = new Solution();
         int[] result = sol.twoSum(nums, target);
-        System.out.println(Arrays.toString(result));
+        // Output in format [a,b] without spaces
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < result.length; i++) {
+            sb.append(result[i]);
+            if (i < result.length - 1) sb.append(",");
+        }
+        sb.append("]");
+        System.out.println(sb.toString());
     }
 }`,
 

@@ -9,6 +9,7 @@ import {
   getUserContestSubmissions,
   startVirtualContest,
   updateContestStatus,
+  extendContestTime,
   getContestProblems,
   getVirtualContestRankings,
   getDisqualificationStatus,
@@ -44,5 +45,6 @@ router.post("/:contestId/anti-cheat-violation", requireAuth(), handleAntiCheatVi
 
 // Admin routes
 router.patch("/:contestId/status", requireAuth(), updateContestStatus);
+router.patch("/:contestId/extend", requireAuth(), extendContestTime);
 
 export default router;

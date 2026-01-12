@@ -109,7 +109,9 @@ export const createProblem = async (req, res) => {
     // Check if user is contest admin
     const user = await User.findOne({ clerkId: userId });
     if (!user || !user.contestAdmin) {
-      return res.status(403).json({ error: "Access denied. Contest admin required." });
+      return res
+        .status(403)
+        .json({ error: "Access denied. Contest admin required." });
     }
 
     const {
@@ -123,7 +125,7 @@ export const createProblem = async (req, res) => {
       examples,
       testCases,
       functionSignatures,
-      driverCode
+      driverCode,
     } = req.body;
 
     // Validate required fields
@@ -134,21 +136,23 @@ export const createProblem = async (req, res) => {
     // Check if problem with same title already exists
     const existingProblem = await Problem.findOne({ title });
     if (existingProblem) {
-      return res.status(400).json({ error: "Problem with this title already exists" });
+      return res
+        .status(400)
+        .json({ error: "Problem with this title already exists" });
     }
 
     // Transform testCases to match model schema
-    const transformedTestCases = testCases.map(tc => ({
+    const transformedTestCases = testCases.map((tc) => ({
       input: tc.input,
       expectedOutput: tc.output,
-      isHidden: tc.isHidden || false
+      isHidden: tc.isHidden || false,
     }));
 
     // Create problem
     const problem = new Problem({
       title,
       description,
-      difficulty: difficulty || 'Easy',
+      difficulty: difficulty || "Easy",
       timeLimit: timeLimit || 2000,
       memoryLimit: memoryLimit || 256,
       tags: tags || [],
@@ -159,7 +163,7 @@ export const createProblem = async (req, res) => {
       driverCode: driverCode || {},
       createdBy: user._id,
       createdByUsername: user.username,
-      constraints: '', // Add empty constraints for now
+      constraints: "", // Add empty constraints for now
     });
 
     await problem.save();
@@ -172,7 +176,6 @@ export const createProblem = async (req, res) => {
         difficulty: problem.difficulty,
       },
     });
-
   } catch (error) {
     console.error("Create problem error:", error);
     res.status(500).json({ error: "Failed to create problem" });
@@ -183,16 +186,12 @@ export const getAllProblems = async (req, res) => {
   try {
     const { includeContestOnly } = req.query;
 
-
     let query = {};
-    if (includeContestOnly === 'true') {
+    if (includeContestOnly === "true") {
       query = { isContestOnly: true };
     } else {
       query = {
-        $or: [
-          { isContestOnly: { $exists: false } },
-          { isContestOnly: false }
-        ]
+        $or: [{ isContestOnly: { $exists: false } }, { isContestOnly: false }],
       };
     }
 

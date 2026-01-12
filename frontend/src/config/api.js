@@ -15,6 +15,8 @@ export const API_ENDPOINTS = {
   contestVirtualRankings: (id) => `${API_BASE_URL}/api/contests/${id}/virtual/rankings`,
   contestAntiCheatViolation: (id) => `${API_BASE_URL}/api/contests/${id}/anti-cheat-violation`,
   contestDisqualificationStatus: (id) => `${API_BASE_URL}/api/contests/${id}/disqualification-status`,
+  contestExtendTime: (id) => `${API_BASE_URL}/api/contests/${id}/extend`,
+  contestExit: (id) => `${API_BASE_URL}/api/contests/${id}/exit`,
   submissionStatus: (id) => `${API_BASE_URL}/api/contests/submissions/${id}`,
   
   // Contest ranking endpoints
