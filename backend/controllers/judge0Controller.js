@@ -325,9 +325,14 @@ export const runCodeWithTests = async (req, res) => {
           }
         );
 
-        // Clean output for comparison
-        const actualOutput = result.stdout ? result.stdout.trim() : "";
-        const expectedOutput = testCase.expectedOutput.trim();
+        // Clean output for comparison - normalize spacing and case
+        const normalizeOutput = (str) => {
+          if (!str) return "";
+          // Trim, lowercase, remove spaces after commas and around brackets
+          return str.trim().toLowerCase().replace(/,\s+/g, ',').replace(/\[\s+/g, '[').replace(/\s+\]/g, ']');
+        };
+        const actualOutput = normalizeOutput(result.stdout);
+        const expectedOutput = normalizeOutput(testCase.expectedOutput);
         const passed = actualOutput === expectedOutput;
 
         results.push({
@@ -412,6 +417,13 @@ export const submitCodeWithTests = async (req, res) => {
     const results = [];
     let passedCount = 0;
 
+    // Helper to normalize output for comparison - handles spacing and case differences
+    const normalizeOutput = (str) => {
+      if (!str) return "";
+      // Trim, lowercase, remove spaces after commas and around brackets
+      return str.trim().toLowerCase().replace(/,\s+/g, ',').replace(/\[\s+/g, '[').replace(/\s+\]/g, ']');
+    };
+
     for (const testCase of allTestCases) {
       try {
         const submission = {
@@ -431,9 +443,9 @@ export const submitCodeWithTests = async (req, res) => {
           }
         );
 
-        // Clean output for comparison
-        const actualOutput = result.stdout ? result.stdout.trim() : "";
-        const expectedOutput = testCase.expectedOutput.trim();
+        // Clean output for comparison - normalize spacing
+        const actualOutput = normalizeOutput(result.stdout);
+        const expectedOutput = normalizeOutput(testCase.expectedOutput);
         const passed = actualOutput === expectedOutput;
 
         if (passed) passedCount++;

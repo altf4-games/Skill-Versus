@@ -30,6 +30,9 @@ const ContestRoom = () => {
   const [code, setCode] = useState('');
   const [language, setLanguage] = useState('javascript');
   const [submitting, setSubmitting] = useState(false);
+  
+  // Store code per problem: { [problemIndex]: { [language]: code } }
+  const [savedCode, setSavedCode] = useState({});
 
   // Code execution
   const [isRunning, setIsRunning] = useState(false);
@@ -230,15 +233,36 @@ const ContestRoom = () => {
     }
   }, [isRegistered, isVirtual, contestStatus]);
 
+  // Save current code before switching problems or language
+  const saveCurrentCode = useCallback(() => {
+    if (problems.length > 0 && code) {
+      setSavedCode(prev => ({
+        ...prev,
+        [currentProblem]: {
+          ...(prev[currentProblem] || {}),
+          [language]: code
+        }
+      }));
+    }
+  }, [currentProblem, language, code, problems.length]);
+
+  // Load code for current problem/language or use template
   useEffect(() => {
     if (problems.length > 0 && currentProblem >= 0) {
       const problem = problems[currentProblem];
-      const template = problem?.languageBoilerplate?.[language] ||
-                      problem?.functionSignatures?.[language] ||
-                      problem?.functionSignature || '';
-      setCode(template);
+      // Check if we have saved code for this problem and language
+      const saved = savedCode[currentProblem]?.[language];
+      if (saved) {
+        setCode(saved);
+      } else {
+        // Use template
+        const template = problem?.languageBoilerplate?.[language] ||
+                        problem?.functionSignatures?.[language] ||
+                        problem?.functionSignature || '';
+        setCode(template);
+      }
     }
-  }, [language, problems, currentProblem]);
+  }, [language, currentProblem, problems, savedCode]);
 
   const fetchContestDetails = async () => {
     try {
@@ -409,12 +433,9 @@ const ContestRoom = () => {
   };
 
   const handleProblemChange = (index) => {
+    // Save current code before switching
+    saveCurrentCode();
     setCurrentProblem(index);
-    const problem = problems[index];
-    const template = problem?.languageBoilerplate?.[language] ||
-                    problem?.functionSignatures?.[language] ||
-                    problem?.functionSignature || '';
-    setCode(template);
   };
 
   const runCode = async () => {
@@ -815,7 +836,10 @@ const ContestRoom = () => {
               <div className="flex-shrink-0 flex items-center justify-between px-4 py-2 bg-muted/50 border-b border-border">
                 <select
                   value={language}
-                  onChange={(e) => setLanguage(e.target.value)}
+                  onChange={(e) => {
+                    saveCurrentCode();
+                    setLanguage(e.target.value);
+                  }}
                   className="bg-background border border-border text-foreground text-sm rounded px-3 py-1.5"
                 >
                   <option value="javascript">JavaScript</option>
