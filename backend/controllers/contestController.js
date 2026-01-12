@@ -340,7 +340,8 @@ export const generateLeaderboard = async (contestId, isVirtual = false) => {
       problemData.solved = true;
       problemData.attempts++;
       // Calculate penalty points deducted for wrong submissions
-      const penaltyDeduction = problemData.wrongAttempts * penaltyPerWrongSubmission;
+      const penaltyDeduction =
+        problemData.wrongAttempts * penaltyPerWrongSubmission;
       problemData.penalty = penaltyDeduction;
       // Points awarded = problem points - penalty deduction (minimum 0)
       problemData.points = Math.max(0, submission.points - penaltyDeduction);
@@ -432,11 +433,9 @@ export const startVirtualContest = async (req, res) => {
     }
 
     if (contest.status !== "finished") {
-      return res
-        .status(400)
-        .json({
-          error: "Can only start virtual contest for finished contests",
-        });
+      return res.status(400).json({
+        error: "Can only start virtual contest for finished contests",
+      });
     }
 
     // Check if user already has a virtual contest running
@@ -564,8 +563,16 @@ export const extendContestTime = async (req, res) => {
         .json({ error: "Access denied. Contest admin required." });
     }
 
-    if (!additionalMinutes || additionalMinutes <= 0 || additionalMinutes > 180) {
-      return res.status(400).json({ error: "Invalid extension time. Must be between 1 and 180 minutes." });
+    if (
+      !additionalMinutes ||
+      additionalMinutes <= 0 ||
+      additionalMinutes > 180
+    ) {
+      return res
+        .status(400)
+        .json({
+          error: "Invalid extension time. Must be between 1 and 180 minutes.",
+        });
     }
 
     const contest = await Contest.findById(contestId);
@@ -575,12 +582,16 @@ export const extendContestTime = async (req, res) => {
 
     // Can only extend active or upcoming contests
     if (contest.status === "finished") {
-      return res.status(400).json({ error: "Cannot extend a finished contest" });
+      return res
+        .status(400)
+        .json({ error: "Cannot extend a finished contest" });
     }
 
     // Calculate new end time
     const currentEndTime = new Date(contest.endTime);
-    const newEndTime = new Date(currentEndTime.getTime() + additionalMinutes * 60 * 1000);
+    const newEndTime = new Date(
+      currentEndTime.getTime() + additionalMinutes * 60 * 1000
+    );
     const newDuration = contest.duration + additionalMinutes;
 
     // Update contest
@@ -588,7 +599,9 @@ export const extendContestTime = async (req, res) => {
     contest.duration = newDuration;
     await contest.save();
 
-    console.log(`Contest ${contestId} extended by ${additionalMinutes} minutes. New end time: ${newEndTime}`);
+    console.log(
+      `Contest ${contestId} extended by ${additionalMinutes} minutes. New end time: ${newEndTime}`
+    );
 
     res.json({
       message: `Contest extended by ${additionalMinutes} minutes`,

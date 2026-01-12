@@ -4,6 +4,81 @@ configDotenv();
 
 const JUDGE0_BASE_URL = process.env.JUDGE0_BASE_URL;
 
+/**
+ * Convert JSON-style input to CodeChef-style input
+ * [1,2,3] -> 3\n1 2 3
+ * "hello" -> hello
+ * Handles multiple lines
+ */
+function convertToCodeChefInput(input) {
+  const lines = input.trim().split('\n');
+  const convertedLines = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    
+    // Check if it's a JSON array
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const arr = JSON.parse(trimmed);
+        if (Array.isArray(arr)) {
+          // Output: length on first line, then space-separated values
+          convertedLines.push(arr.length.toString());
+          convertedLines.push(arr.join(' '));
+          continue;
+        }
+      } catch (e) {
+        // Not valid JSON, treat as raw string
+      }
+    }
+    
+    // Check if it's a quoted string
+    if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+        (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+      convertedLines.push(trimmed.slice(1, -1));
+      continue;
+    }
+    
+    // Pass through as-is (numbers, plain strings, etc.)
+    convertedLines.push(trimmed);
+  }
+
+  return convertedLines.join('\n');
+}
+
+/**
+ * Normalize output for comparison
+ * - Removes whitespace from array brackets: [0, 1] -> [0,1]
+ * - Converts between array and space-separated formats
+ * - Case insensitive comparison
+ * - Handles multi-line outputs
+ */
+function normalizeOutput(str) {
+  if (!str) return "";
+  
+  // Split by lines and normalize each line
+  const lines = str.trim().split('\n').map(line => {
+    let normalized = line.trim().toLowerCase();
+    
+    // Remove spaces around array brackets and commas: [0, 1] -> [0,1]
+    normalized = normalized.replace(/\[\s*/g, '[');
+    normalized = normalized.replace(/\s*\]/g, ']');
+    normalized = normalized.replace(/\s*,\s*/g, ',');
+    
+    // If line is a simple array like [0,1], convert to space-separated
+    const arrayMatch = normalized.match(/^\[([^\[\]]*)\]$/);
+    if (arrayMatch) {
+      // Convert [0,1,2] to 0 1 2
+      normalized = arrayMatch[1].replace(/,/g, ' ');
+    }
+    
+    return normalized;
+  });
+  
+  // Join back and remove empty lines
+  return lines.filter(l => l.length > 0).join('\n');
+}
+
 // Helper function to make requests to Judge0 API
 async function makeJudge0Request(endpoint, options = {}) {
   const url = `${JUDGE0_BASE_URL}${endpoint}`;
@@ -308,10 +383,13 @@ export const runCodeWithTests = async (req, res) => {
 
     for (const testCase of sampleTestCases) {
       try {
+        // Convert input to CodeChef style (space-separated instead of JSON arrays)
+        const stdin = convertToCodeChefInput(testCase.input);
+        
         const submission = {
           source_code,
           language_id,
-          stdin: testCase.input,
+          stdin,
           cpu_time_limit: 2,
           memory_limit: 128000,
           wall_time_limit: 5,
@@ -325,18 +403,13 @@ export const runCodeWithTests = async (req, res) => {
           }
         );
 
-        // Clean output for comparison - normalize spacing and case
-        const normalizeOutput = (str) => {
-          if (!str) return "";
-          // Trim, lowercase, remove spaces after commas and around brackets
-          return str.trim().toLowerCase().replace(/,\s+/g, ',').replace(/\[\s+/g, '[').replace(/\s+\]/g, ']');
-        };
+        // Use global normalizeOutput for comparison
         const actualOutput = normalizeOutput(result.stdout);
         const expectedOutput = normalizeOutput(testCase.expectedOutput);
         const passed = actualOutput === expectedOutput;
 
         results.push({
-          input: testCase.input,
+          input: convertedInput, // Show the CodeChef-style input users receive
           expectedOutput: expectedOutput,
           actualOutput: actualOutput,
           passed: passed,
@@ -344,8 +417,9 @@ export const runCodeWithTests = async (req, res) => {
           status: result.status,
         });
       } catch (error) {
+        const convertedInputForError = convertToCodeChefInput(testCase.input);
         results.push({
-          input: testCase.input,
+          input: convertedInputForError,
           expectedOutput: testCase.expectedOutput,
           actualOutput: "",
           passed: false,
@@ -417,19 +491,15 @@ export const submitCodeWithTests = async (req, res) => {
     const results = [];
     let passedCount = 0;
 
-    // Helper to normalize output for comparison - handles spacing and case differences
-    const normalizeOutput = (str) => {
-      if (!str) return "";
-      // Trim, lowercase, remove spaces after commas and around brackets
-      return str.trim().toLowerCase().replace(/,\s+/g, ',').replace(/\[\s+/g, '[').replace(/\s+\]/g, ']');
-    };
-
     for (const testCase of allTestCases) {
       try {
+        // Convert input to CodeChef style (space-separated instead of JSON arrays)
+        const stdin = convertToCodeChefInput(testCase.input);
+        
         const submission = {
           source_code,
           language_id,
-          stdin: testCase.input,
+          stdin,
           cpu_time_limit: 2,
           memory_limit: 128000,
           wall_time_limit: 5,
@@ -443,7 +513,7 @@ export const submitCodeWithTests = async (req, res) => {
           }
         );
 
-        // Clean output for comparison - normalize spacing
+        // Use global normalizeOutput for comparison
         const actualOutput = normalizeOutput(result.stdout);
         const expectedOutput = normalizeOutput(testCase.expectedOutput);
         const passed = actualOutput === expectedOutput;
@@ -453,7 +523,7 @@ export const submitCodeWithTests = async (req, res) => {
         // For submission, we don't show details of hidden test cases
         if (!testCase.isHidden) {
           results.push({
-            input: testCase.input,
+            input: convertedInput, // Show the CodeChef-style input users receive
             expectedOutput: expectedOutput,
             actualOutput: actualOutput,
             passed: passed,
@@ -468,9 +538,10 @@ export const submitCodeWithTests = async (req, res) => {
           });
         }
       } catch (error) {
+        const convertedInputForError = convertToCodeChefInput(testCase.input);
         if (!testCase.isHidden) {
           results.push({
-            input: testCase.input,
+            input: convertedInputForError,
             expectedOutput: testCase.expectedOutput,
             actualOutput: "",
             passed: false,
