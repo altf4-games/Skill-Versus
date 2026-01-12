@@ -6,7 +6,7 @@ const JUDGE0_BASE_URL = process.env.JUDGE0_BASE_URL;
 
 /**
  * Convert JSON-style input to CodeChef-style input
- * [1,2,3] -> 3\n1 2 3
+ * [1,2,3] -> 1 2 3 (space-separated on single line)
  * "hello" -> hello
  * Handles multiple lines
  */
@@ -22,8 +22,7 @@ function convertToCodeChefInput(input) {
       try {
         const arr = JSON.parse(trimmed);
         if (Array.isArray(arr)) {
-          // Output: length on first line, then space-separated values
-          convertedLines.push(arr.length.toString());
+          // Output: just space-separated values (no length prefix)
           convertedLines.push(arr.join(" "));
           continue;
         }
@@ -337,11 +336,9 @@ export const runCodeWithTests = async (req, res) => {
         if (is_virtual) {
           // For virtual contests, check virtual timing
           if (!virtual_start_time) {
-            return res
-              .status(400)
-              .json({
-                error: "Virtual start time required for virtual contest",
-              });
+            return res.status(400).json({
+              error: "Virtual start time required for virtual contest",
+            });
           }
 
           const virtualStart = new Date(virtual_start_time);
