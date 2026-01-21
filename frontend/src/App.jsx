@@ -24,11 +24,21 @@ import CreateProblemPage from "@/pages/CreateProblemPage";
 import AdminPage from "@/pages/AdminPage";
 import MobileBlocker from "@/components/MobileBlocker";
 
+import EndOfServiceScreen from "@/components/EndOfServiceScreen";
+
 const CLERK_PUBLISHABLE_KEY =
   import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ||
   "pk_test_Y29tcGV0ZW50LXNxdWlycmVsLTI0LmNsZXJrLmFjY291bnRzLmRldiQ";
 
+// Set this to true to show the "End of Service" screen.
+// Set to false to enable full app functionality.
+const SHOW_END_OF_SERVICE = true;
+
 function App() {
+  if (SHOW_END_OF_SERVICE) {
+    return <EndOfServiceScreen />;
+  }
+
   return (
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
       <ThemeProvider>
