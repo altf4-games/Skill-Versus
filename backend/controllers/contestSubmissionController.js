@@ -2,7 +2,6 @@ import Contest from "../models/Contest.js";
 import ContestSubmission from "../models/ContestSubmission.js";
 import Problem from "../models/Problem.js";
 import User from "../models/User.js";
-import redisContestUtils from "../utils/redisContestUtils.js";
 import * as judge0Controller from "./judge0Controller.js";
 
 // Submit code for contest problem
@@ -24,106 +23,83 @@ export const submitContestCode = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
     
+    // Check if user is disqualified (MongoDB-based)
     const contest = await Contest.findById(contestId);
     if (!contest || !contest.isActive) {
       return res.status(404).json({ error: "Contest not found" });
     }
     
+    const isDisqualified = contest.isUserDisqualified(user._id.toString());
+    if (isDisqualified) {
+      const dqData = contest.disqualifications.find(
+        (d) => d.userId.toString() === user._id.toString()
+      );
+      return res.status(403).json({
+        error: "You have been disqualified from this contest",
+        disqualified: true,
+        reason: dqData?.reason || "Anti-cheat violation"
+      });
+    }
+
+    // Validate contest timing and user registration (only if not already validated above)
+    const now = new Date();
+    let contestStartTime = contest.startTime;
+    let contestEndTime = contest.endTime;
+
+    if (isVirtual) {
+      if (!contest.allowVirtualParticipation || contest.status !== "finished") {
+        return res.status(400).json({ error: "Virtual participation not allowed" });
+      }
+      if (!virtualStartTime) {
+        return res.status(400).json({ error: "Virtual start time required" });
+      }
+      contestStartTime = new Date(virtualStartTime);
+      contestEndTime = new Date(contestStartTime.getTime() + contest.duration * 60 * 1000);
+      if (now > contestEndTime) {
+        return res.status(400).json({ error: "Virtual contest has ended" });
+      }
+    } else {
+      const contestStart = new Date(contest.startTime);
+      const contestEnd = new Date(contest.endTime);
+      if (now < contestStart) {
+        return res.status(400).json({ error: "Contest has not started yet", contestStatus: "upcoming", startTime: contest.startTime });
+      }
+      if (now > contestEnd) {
+        return res.status(400).json({ error: "Contest has ended.", contestStatus: "finished", endTime: contest.endTime });
+      }
+      const isRegistered = contest.registeredUsers.some(
+        regUser => regUser.userId.toString() === user._id.toString()
+      );
+      if (!isRegistered) {
+        return res.status(403).json({ error: "Not registered for this contest" });
+      }
+    }
+
+    // Validate problem exists and is part of the contest
     const problem = await Problem.findById(problemId);
     if (!problem || !problem.isActive) {
       return res.status(404).json({ error: "Problem not found" });
     }
-    
-    // Check if problem is part of the contest
+
     const contestProblem = contest.problems.find(
       p => p.problemId.toString() === problemId
     );
     if (!contestProblem) {
       return res.status(400).json({ error: "Problem not part of this contest" });
     }
-    
-    // Validate contest timing and user registration
-    const now = new Date();
-    let contestStartTime = contest.startTime;
-    let contestEndTime = contest.endTime;
-    
-    if (isVirtual) {
-      if (!contest.allowVirtualParticipation || contest.status !== "finished") {
-        return res.status(400).json({ error: "Virtual participation not allowed" });
-      }
-      
-      if (!virtualStartTime) {
-        return res.status(400).json({ error: "Virtual start time required" });
-      }
-      
-      contestStartTime = new Date(virtualStartTime);
-      contestEndTime = new Date(contestStartTime.getTime() + contest.duration * 60 * 1000);
-      
-      if (now > contestEndTime) {
-        return res.status(400).json({ error: "Virtual contest has ended" });
-      }
-    } else {
-      // Regular contest validation - check actual time instead of database status
-      const contestStart = new Date(contest.startTime);
-      const contestEnd = new Date(contest.endTime);
-
-      if (now < contestStart) {
-        return res.status(400).json({
-          error: "Contest has not started yet",
-          contestStatus: "upcoming",
-          startTime: contest.startTime,
-          message: "Please wait for the contest to begin."
-        });
-      }
-
-      if (now > contestEnd) {
-        return res.status(400).json({
-          error: "Contest has ended. Submissions are no longer accepted.",
-          contestStatus: "finished",
-          endTime: contest.endTime,
-          message: "Check the final leaderboard for results. You can participate virtually if enabled."
-        });
-      }
-
-      const isRegistered = contest.registeredUsers.some(
-        regUser => regUser.userId.toString() === user._id.toString()
-      );
-
-      if (!isRegistered) {
-        return res.status(403).json({ error: "Not registered for this contest" });
-      }
-    }
-
-    // Check if user is disqualified
-    const isDisqualified = await redisContestUtils.isUserDisqualified(contestId, user._id.toString());
-    if (isDisqualified) {
-      const disqualificationData = await redisContestUtils.getUserDisqualificationData(contestId, user._id.toString());
-      return res.status(403).json({
-        error: "You have been disqualified from this contest",
-        disqualified: true,
-        reason: disqualificationData?.reason || "Anti-cheat violation"
-      });
-    }
 
     // Check submission limits
     const userSubmissions = await ContestSubmission.countDocuments({
-      contestId,
-      problemId,
-      userId: user._id,
-      isVirtual,
+      contestId, problemId, userId: user._id, isVirtual,
     });
-    
     if (userSubmissions >= contest.maxSubmissionsPerProblem) {
-      return res.status(400).json({ 
-        error: `Maximum ${contest.maxSubmissionsPerProblem} submissions per problem exceeded` 
-      });
+      return res.status(400).json({ error: `Maximum ${contest.maxSubmissionsPerProblem} submissions per problem exceeded` });
     }
-    
+
     // Calculate time from contest start
-    const timeFromStart = Math.floor((now - contestStartTime) / (1000 * 60)); // minutes
-    
-    // Submit code directly with all test cases (like duel system)
-    console.log(`Submitting to Judge0 with all test cases: Language ID=${getLanguageId(language)}`);
+    const timeFromStart = Math.floor((now - contestStartTime) / (1000 * 60));
+
+    console.log(`Submitting to Judge0: Language ID=${getLanguageId(language)}`);
 
     // Create a promise to capture the result from submitCodeWithTests
     let testResult;

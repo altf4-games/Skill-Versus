@@ -18,16 +18,17 @@ import {
   AlertTriangle,
   Maximize
 } from 'lucide-react';
+import { apiClient } from '@/lib/api';
 import { useAntiCheat } from '@/hooks/useAntiCheat';
 
 export default function TypingInterface({ 
   room, 
-  socket, 
   user, 
   timeRemaining, 
   isReady, 
   setIsReady,
-  formatTime 
+  formatTime,
+  onToggleReady
 }) {
   const [typedText, setTypedText] = useState('');
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
@@ -48,17 +49,11 @@ export default function TypingInterface({
   // Anti-cheat measures
   const handleAntiCheatViolation = (violation) => {
     console.log('Anti-cheat violation detected:', violation);
-
-    // Notify server about the violation
-    if (socket) {
-      socket.emit('anti-cheat-violation', {
-        roomCode: room.roomCode,
-        violation: violation,
-        userId: user?.id
-      });
-    }
-
-    // Show violation message to user
+    // Notify server about the violation via REST
+    apiClient.request(`/api/duels/anti-cheat/${room.roomCode}`, {
+      method: 'POST',
+      body: JSON.stringify({ violation, userId: user?.id })
+    }).catch(console.error);
     setAntiCheatWarning(`Anti-cheat violation: ${violation.message}`);
     setTimeout(() => setAntiCheatWarning(''), 5000);
   };
@@ -165,14 +160,16 @@ export default function TypingInterface({
       setMistakes(prev => prev + 1);
     }
 
-    // Emit progress to other players
-    if (socket) {
-      socket.emit('typing-progress', {
-        roomCode: room.roomCode,
+    // Emit progress to other players via REST
+    apiClient.request(`/api/duels/typing-progress/${room.roomCode}`, {
+      method: 'POST',
+      body: JSON.stringify({
         typedText: value,
-        currentWordIndex: newWordIndex || currentWordIndex,
-      });
-    }
+        currentWordIndex: newWordIndex ?? currentWordIndex,
+        wpm: Math.round(currentWpm),
+        accuracy: Math.round(currentAccuracy * 100) / 100,
+      })
+    }).catch(() => {}); // fire and forget
   };
 
   const handleCompletion = () => {
@@ -185,17 +182,17 @@ export default function TypingInterface({
     
     console.log(`Typing completed in ${totalTime}s with ${accuracy}% accuracy`);
     
-    // Notify server about completion
-    if (socket) {
-      socket.emit('typing-completion', {
-        roomCode: room.roomCode,
+    // Notify server about completion via REST
+    apiClient.request(`/api/duels/typing-finish/${room.roomCode}`, {
+      method: 'POST',
+      body: JSON.stringify({
         finishTime: finishTime,
         totalTime: totalTime,
         wpm: Math.round(finalWpm),
         accuracy: accuracy,
         totalWords: totalWords
-      });
-    }
+      })
+    }).catch(console.error);
   };
 
   const handleRestart = () => {
@@ -208,11 +205,11 @@ export default function TypingInterface({
       setMistakes(0);
       setIsFinished(false);
       
-      if (socket) {
-        socket.emit('restart-typing', {
-          roomCode: room.roomCode,
-        });
-      }
+      // Notify server about restart via REST
+      apiClient.request(`/api/duels/typing-progress/${room.roomCode}`, {
+        method: 'POST',
+        body: JSON.stringify({ restart: true, currentWordIndex: 0, wpm: 0, accuracy: 100 })
+      }).catch(() => {});
       
       if (inputRef.current) {
         inputRef.current.focus();
@@ -221,10 +218,9 @@ export default function TypingInterface({
   };
 
   const toggleReady = () => {
-    if (socket) {
-      socket.emit('toggle-ready', { roomCode: room.roomCode });
+    if (onToggleReady) {
+      onToggleReady();
     }
-    setIsReady(!isReady);
   };
 
   const copyRoomCode = async () => {

@@ -3,8 +3,8 @@ import ContestSubmission from "../models/ContestSubmission.js";
 import ContestRanking from "../models/ContestRanking.js";
 import Problem from "../models/Problem.js";
 import User from "../models/User.js";
-import redisContestUtils from "../utils/redisContestUtils.js";
 import ratingService from "../services/ratingService.js";
+import { handleContestEnd } from "../services/contestStatusUpdater.js";
 
 // Get all contests (public listing)
 export const getAllContests = async (req, res) => {
@@ -257,29 +257,15 @@ export const getContestLeaderboard = async (req, res) => {
       return res.status(404).json({ error: "Contest not found" });
     }
 
-    // For active contests, try to get from Redis first
-    if (contest.status === "active" && !virtual) {
-      try {
-        const redisLeaderboard = await redisContestUtils.getLeaderboard(
-          contestId
-        );
-        if (redisLeaderboard) {
-          return res.json({ leaderboard: redisLeaderboard, fromCache: true });
-        }
-      } catch (error) {
-        console.warn("Redis leaderboard fetch failed:", error.message);
-      }
-    }
-
-    // For finished contests or if Redis fails, get from MongoDB
-    if (contest.status === "finished") {
+    // For finished contests, return saved finalStandings
+    if (contest.status === "finished" && !virtual) {
       return res.json({
         leaderboard: contest.finalStandings,
         fromCache: false,
       });
     }
 
-    // Generate leaderboard from submissions
+    // Generate leaderboard from submissions (MongoDB only)
     const leaderboard = await generateLeaderboard(contestId, virtual);
     res.json({ leaderboard, fromCache: false });
   } catch (error) {
@@ -288,7 +274,7 @@ export const getContestLeaderboard = async (req, res) => {
   }
 };
 
-// Helper function to generate leaderboard
+// Helper function to generate leaderboard (MongoDB only)
 export const generateLeaderboard = async (contestId, isVirtual = false) => {
   const submissions = await ContestSubmission.find({
     contestId,
@@ -301,10 +287,8 @@ export const generateLeaderboard = async (contestId, isVirtual = false) => {
   const contest = await Contest.findById(contestId);
   const penaltyPerWrongSubmission = contest?.penaltyPerWrongSubmission || 20;
 
-  // Get disqualified users
-  const disqualifiedUsers = await redisContestUtils.getDisqualifiedUsers(
-    contestId
-  );
+  // Get disqualified users from Contest model
+  const disqualifiedUsers = contest ? contest.getDisqualifiedUserIds() : [];
 
   // Process submissions to calculate scores
   submissions.forEach((submission) => {
@@ -509,7 +493,6 @@ export const updateContestStatus = async (req, res) => {
       contest.finalStandings = leaderboard;
       contest.totalParticipants = leaderboard.length;
 
-      // Also save virtual contest standings if there are any virtual participants
       const virtualLeaderboard = await generateLeaderboard(contestId, true);
       if (virtualLeaderboard.length > 0) {
         contest.virtualFinalStandings = virtualLeaderboard;
@@ -518,7 +501,6 @@ export const updateContestStatus = async (req, res) => {
 
       await contest.save();
 
-      // Update contest ratings for all participants
       try {
         const ratingUpdates = await ratingService.updateContestRatings(
           contestId,
@@ -530,15 +512,6 @@ export const updateContestStatus = async (req, res) => {
       } catch (error) {
         console.error("Failed to update contest ratings:", error);
       }
-
-      // Clean up Redis data after a delay
-      setTimeout(async () => {
-        try {
-          await redisContestUtils.deleteContestData(contestId);
-        } catch (error) {
-          console.error("Failed to cleanup Redis data:", error);
-        }
-      }, 60000); // 1 minute delay
     }
 
     res.json({ message: "Contest status updated successfully" });
@@ -630,30 +603,8 @@ export const getDisqualificationStatus = async (req, res) => {
       return res.status(404).json({ error: "Contest not found" });
     }
 
-    // Check if user is disqualified in Redis
-    try {
-      await redisContestUtils.init();
-      const disqualifiedUsers = await redisContestUtils.getDisqualifiedUsers(
-        contestId
-      );
-      const isDisqualified = disqualifiedUsers.includes(user._id.toString());
-
-      res.json({
-        isDisqualified,
-        contestId,
-        userId: user._id.toString(),
-      });
-    } catch (redisError) {
-      console.warn(
-        "Redis check failed, assuming not disqualified:",
-        redisError.message
-      );
-      res.json({
-        isDisqualified: false,
-        contestId,
-        userId: user._id.toString(),
-      });
-    }
+    const isDisqualified = contest.isUserDisqualified(user._id.toString());
+    res.json({ isDisqualified, contestId, userId: user._id.toString() });
   } catch (error) {
     console.error("Get disqualification status error:", error);
     res.status(500).json({ error: "Failed to get disqualification status" });
@@ -664,7 +615,7 @@ export const getDisqualificationStatus = async (req, res) => {
 export const handleAntiCheatViolation = async (req, res) => {
   try {
     const { contestId } = req.params;
-    const { violation, isVirtual, virtualStartTime } = req.body;
+    const { violation, isVirtual } = req.body;
     const userId = req.auth.userId;
 
     const user = await User.findOne({ clerkId: userId });
@@ -677,44 +628,35 @@ export const handleAntiCheatViolation = async (req, res) => {
       return res.status(404).json({ error: "Contest not found" });
     }
 
-    // Check if user is registered for the contest
     const isRegistered = contest.isUserRegistered(user._id);
     if (!isRegistered && !isVirtual) {
       return res.status(403).json({ error: "User not registered for contest" });
     }
 
-    // Log the violation
     console.log(
       `[ANTI-CHEAT] Contest violation - User: ${user.username}, Contest: ${contestId}, Type: ${violation.type}`
     );
 
-    // Check for serious violations that trigger disqualification
     const seriousViolations = ["FOCUS_LOST", "TAB_SWITCH", "FULLSCREEN_EXIT"];
     let disqualified = false;
 
     if (seriousViolations.includes(violation.type)) {
-      // Mark user as disqualified in Redis
-      await redisContestUtils.disqualifyUser(contestId, user._id.toString(), {
+      contest.disqualifyUser(user._id.toString(), {
+        username: user.username,
         reason: violation.message,
-        timestamp: new Date(),
         violationType: violation.type,
-        isVirtual,
+        timestamp: new Date(),
+        isVirtual: isVirtual || false,
       });
-
+      await contest.save();
       disqualified = true;
-      console.log(
-        `[ANTI-CHEAT] User ${user.username} disqualified from contest ${contestId}`
-      );
+      console.log(`[ANTI-CHEAT] User ${user.username} disqualified from contest ${contestId}`);
     }
 
     res.json({
       message: "Anti-cheat violation recorded",
       disqualified,
-      violation: {
-        type: violation.type,
-        message: violation.message,
-        timestamp: new Date(),
-      },
+      violation: { type: violation.type, message: violation.message, timestamp: new Date() },
     });
   } catch (error) {
     console.error("Handle anti-cheat violation error:", error);

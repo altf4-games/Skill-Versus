@@ -1,192 +1,90 @@
 import Contest from '../models/Contest.js';
 import { generateLeaderboard } from '../controllers/contestController.js';
 import ratingService from './ratingService.js';
-import redisContestUtils from '../utils/redisContestUtils.js';
 
 /**
- * Background service to update contest statuses in real-time
- * Automatically transitions contests from upcoming -> active -> finished
- * Handles final processing when contests end
+ * Stateless contest status helpers.
+ * No background interval - called on-demand from controllers.
  */
-class ContestStatusUpdater {
-  constructor() {
-    this.isRunning = false;
-    this.intervalId = null;
-    this.updateInterval = 30000; // Check every 30 seconds
+
+/**
+ * Update a single contest's status based on current time.
+ * Returns true if the status changed.
+ */
+export const updateContestStatus = async (contest) => {
+  const now = new Date();
+  const oldStatus = contest.status;
+
+  let newStatus;
+  if (now < contest.startTime) {
+    newStatus = 'upcoming';
+  } else if (now <= contest.endTime) {
+    newStatus = 'active';
+  } else {
+    newStatus = 'finished';
   }
 
-  async start() {
-    if (this.isRunning) {
-      console.log("Contest status updater is already running");
-      return;
-    }
-
-    this.isRunning = true;
-    console.log("Starting contest status updater...");
-
-    // Start update loop
-    this.intervalId = setInterval(async () => {
-      try {
-        await this.updateAllContestStatuses();
-      } catch (error) {
-        console.error("Contest status updater error:", error);
-      }
-    }, this.updateInterval);
-
-    console.log(`Contest status updater started - checking every ${this.updateInterval}ms`);
+  if (oldStatus === newStatus) {
+    return false;
   }
 
-  async stop() {
-    if (!this.isRunning) {
-      console.log("Contest status updater is not running");
-      return;
-    }
+  console.log(`Contest ${contest.title}: ${oldStatus} -> ${newStatus}`);
+  contest.status = newStatus;
+  await contest.save();
 
-    this.isRunning = false;
-    
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
-    }
-
-    console.log("Contest status updater stopped");
+  if (newStatus === 'finished') {
+    await handleContestEnd(contest);
   }
 
-  async updateAllContestStatuses() {
-    if (!this.isRunning) return;
+  return true;
+};
 
-    try {
-      const now = new Date();
-      
-      // Find contests that need status updates
-      const contestsToUpdate = await Contest.find({
-        isActive: true,
-        $or: [
-          // Upcoming contests that should be active
-          {
-            status: 'upcoming',
-            startTime: { $lte: now }
-          },
-          // Active contests that should be finished
-          {
-            status: 'active',
-            endTime: { $lte: now }
-          }
-        ]
-      });
+/**
+ * Finalise a contest: save final standings + update CP ratings.
+ */
+export const handleContestEnd = async (contest) => {
+  try {
+    console.log(`Contest finished: ${contest.title}`);
 
-      // Only log when there are contests to update
-      if (contestsToUpdate.length > 0) {
-        console.log(`Found ${contestsToUpdate.length} contests needing status updates`);
-      }
+    const finalStandings = await generateLeaderboard(contest._id.toString());
 
-      for (const contest of contestsToUpdate) {
-        await this.updateContestStatus(contest, now);
-      }
-
-    } catch (error) {
-      console.error("Error updating contest statuses:", error);
-    }
-  }
-
-  async updateContestStatus(contest, now = new Date()) {
-    const oldStatus = contest.status;
-    let newStatus;
-
-    // Determine new status
-    if (now < contest.startTime) {
-      newStatus = 'upcoming';
-    } else if (now <= contest.endTime) {
-      newStatus = 'active';
-    } else {
-      newStatus = 'finished';
-    }
-
-    // Only update if status changed
-    if (oldStatus === newStatus) {
-      return;
-    }
-
-    console.log(`Contest ${contest.title} (${contest._id}): ${oldStatus} -> ${newStatus}`);
-
-    // Update status
-    contest.status = newStatus;
+    contest.finalStandings = finalStandings;
+    contest.totalParticipants = finalStandings.length;
     await contest.save();
 
-    // Handle status-specific actions
-    if (newStatus === 'active') {
-      await this.handleContestStart(contest);
-    } else if (newStatus === 'finished') {
-      await this.handleContestEnd(contest);
+    console.log(`Final standings saved for ${contest.title}: ${finalStandings.length} participants`);
+
+    if (finalStandings.length > 0) {
+      await ratingService.updateContestRatings(contest._id.toString(), finalStandings);
+      console.log(`CP ratings updated for contest ${contest.title}`);
     }
+  } catch (error) {
+    console.error(`Error handling contest end for ${contest.title}:`, error);
+  }
+};
+
+/**
+ * Scan all active contests and update statuses that have changed.
+ * Can be called manually from an admin endpoint if needed.
+ */
+export const updateAllContestStatuses = async () => {
+  const now = new Date();
+
+  const contestsToUpdate = await Contest.find({
+    isActive: true,
+    $or: [
+      { status: 'upcoming', startTime: { $lte: now } },
+      { status: 'active', endTime: { $lte: now } },
+    ],
+  });
+
+  if (contestsToUpdate.length > 0) {
+    console.log(`Found ${contestsToUpdate.length} contests needing status updates`);
   }
 
-  async handleContestStart(contest) {
-    console.log(`Contest started: ${contest.title}`);
-    
-    // Initialize Redis data for real-time leaderboard
-    try {
-      await redisContestUtils.initializeContest(contest._id.toString());
-    } catch (error) {
-      console.warn("Failed to initialize Redis for contest:", error.message);
-    }
+  for (const contest of contestsToUpdate) {
+    await updateContestStatus(contest);
   }
 
-  async handleContestEnd(contest) {
-    console.log(`Contest finished: ${contest.title}`);
-    
-    try {
-      // Generate final leaderboard
-      const finalStandings = await generateLeaderboard(contest._id.toString());
-      
-      // Save final standings to contest
-      contest.finalStandings = finalStandings;
-      contest.totalParticipants = finalStandings.length;
-      await contest.save();
-
-      console.log(`Final standings saved for contest ${contest.title}: ${finalStandings.length} participants`);
-
-      // Update CP ratings for all participants
-      if (finalStandings.length > 0) {
-        await ratingService.updateContestRatings(contest._id.toString(), finalStandings);
-        console.log(`CP ratings updated for contest ${contest.title}`);
-      }
-
-      // Clean up Redis data after a delay
-      setTimeout(async () => {
-        try {
-          await redisContestUtils.deleteContestData(contest._id.toString());
-          console.log(`Redis data cleaned up for contest ${contest.title}`);
-        } catch (error) {
-          console.error("Failed to cleanup Redis data:", error);
-        }
-      }, 300000); // 5 minute delay
-
-    } catch (error) {
-      console.error(`Error handling contest end for ${contest.title}:`, error);
-    }
-  }
-
-  getStatus() {
-    return {
-      isRunning: this.isRunning,
-      updateInterval: this.updateInterval,
-    };
-  }
-}
-
-// Create singleton instance
-const contestStatusUpdater = new ContestStatusUpdater();
-
-// Graceful shutdown
-process.on('SIGINT', async () => {
-  console.log('Received SIGINT, shutting down contest status updater...');
-  await contestStatusUpdater.stop();
-});
-
-process.on('SIGTERM', async () => {
-  console.log('Received SIGTERM, shutting down contest status updater...');
-  await contestStatusUpdater.stop();
-});
-
-export default contestStatusUpdater;
+  return contestsToUpdate.length;
+};

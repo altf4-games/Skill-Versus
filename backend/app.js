@@ -2,7 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { clerkMiddleware } from "@clerk/express";
-import connectDB, { connectRedis } from "./db/connection.js";
+import connectDB from "./db/connection.js";
 import routes from "./routes/index.js";
 
 const app = express();
@@ -10,15 +10,29 @@ const app = express();
 // Connect to MongoDB
 connectDB();
 
-// Connect to Redis (for contests)
-connectRedis();
-
 // Middleware
 app.use(
-  cors(/*{
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+  cors({
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      
+      const allowedFrontends = [process.env.FRONTEND_URL, "https://skill-versus.netlify.app", "http://localhost:5173"];
+      
+      // If it's localhost, allow any port during dev
+      if (origin.startsWith('http://localhost:')) {
+        return callback(null, true);
+      }
+      
+      if (allowedFrontends.includes(origin)) {
+        return callback(null, true);
+      }
+      
+      callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
-  }*/)
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  })
 );
 
 app.use(express.json({ limit: "10mb" }));
@@ -31,10 +45,10 @@ app.use(clerkMiddleware());
 app.use("/api", routes);
 
 // Root endpoint
-app.get("/", (req, res) => {
+app.get("/", (_req, res) => {
   res.json({
     message: "Welcome to SkillVersus API! ⚔️",
-    version: "1.0.1",
+    version: "2.0.0",
     endpoints: {
       health: "/api/health",
       users: "/api/users",
@@ -52,7 +66,7 @@ app.use("*", (req, res) => {
 });
 
 // Global error handler
-app.use((err, req, res, next) => {
+app.use((err, _req, res, _next) => {
   console.error("Global error:", err);
   res.status(500).json({
     error: "Internal server error",

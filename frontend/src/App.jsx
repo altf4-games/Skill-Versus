@@ -32,7 +32,7 @@ const CLERK_PUBLISHABLE_KEY =
 
 // Set this to true to show the "End of Service" screen.
 // Set to false to enable full app functionality.
-const SHOW_END_OF_SERVICE = true;
+const SHOW_END_OF_SERVICE = false;
 
 function App() {
   if (SHOW_END_OF_SERVICE) {

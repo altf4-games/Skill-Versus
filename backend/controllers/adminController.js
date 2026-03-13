@@ -2,7 +2,8 @@ import Contest from "../models/Contest.js";
 import Problem from "../models/Problem.js";
 import User from "../models/User.js";
 import ContestRanking from "../models/ContestRanking.js";
-import redisContestUtils from "../utils/redisContestUtils.js";
+import ContestSubmission from "../models/ContestSubmission.js";
+import { generateLeaderboard } from "./contestController.js";
 
 // Middleware to check if user is contest admin
 export const checkContestAdmin = async (req, res, next) => {
@@ -229,73 +230,28 @@ export const getLiveLeaderboard = async (req, res) => {
       return res.status(404).json({ error: "Contest not found" });
     }
 
-    let leaderboardData = [];
-
-    // If contest is finished, get from finalStandings
+    // For finished contests use finalStandings
     if (contest.status === "finished" && contest.finalStandings && contest.finalStandings.length > 0) {
-      // Use finalStandings from database
-      leaderboardData = contest.finalStandings.map((entry) => ({
-        userId: entry.userId,
-        username: entry.username,
-        totalScore: entry.totalScore,
-        totalPenalty: entry.totalPenalty,
-        problemsSolved: entry.problemsSolved,
-        rank: entry.rank,
-      }));
-
-      // Enrich with user data
       const enrichedLeaderboard = await Promise.all(
-        leaderboardData.map(async (entry) => {
-          const user = await User.findById(entry.userId).select(
-            "username firstName lastName profileImage"
-          );
-          return {
-            ...entry,
-            user: user || { username: entry.username || "Unknown" },
-          };
+        contest.finalStandings.map(async (entry) => {
+          const user = await User.findById(entry.userId).select("username firstName lastName profileImage");
+          return { ...entry.toObject ? entry.toObject() : entry, user: user || { username: entry.username || "Unknown" } };
         })
       );
-
-      return res.json({
-        contestId,
-        contestTitle: contest.title,
-        status: contest.status,
-        leaderboard: enrichedLeaderboard,
-      });
+      return res.json({ contestId, contestTitle: contest.title, status: contest.status, leaderboard: enrichedLeaderboard });
     }
 
-    // For active/upcoming contests, get from Redis
-    const leaderboard = await redisContestUtils.getLeaderboard(contestId);
+    // For active contests compute from MongoDB
+    const leaderboard = await generateLeaderboard(contestId);
 
-    // Handle null/empty leaderboard
-    if (!leaderboard || !Array.isArray(leaderboard)) {
-      return res.json({
-        contestId,
-        contestTitle: contest.title,
-        status: contest.status,
-        leaderboard: [],
-      });
-    }
-
-    // Enrich with user data
     const enrichedLeaderboard = await Promise.all(
       leaderboard.map(async (entry) => {
-        const user = await User.findById(entry.userId).select(
-          "username firstName lastName profileImage"
-        );
-        return {
-          ...entry,
-          user: user || { username: "Unknown" },
-        };
+        const user = await User.findById(entry.userId).select("username firstName lastName profileImage");
+        return { ...entry, user: user || { username: "Unknown" } };
       })
     );
 
-    res.json({
-      contestId,
-      contestTitle: contest.title,
-      status: contest.status,
-      leaderboard: enrichedLeaderboard,
-    });
+    res.json({ contestId, contestTitle: contest.title, status: contest.status, leaderboard: enrichedLeaderboard });
   } catch (error) {
     console.error("Get live leaderboard error:", error);
     res.status(500).json({ error: "Failed to get live leaderboard" });
@@ -312,34 +268,14 @@ export const getDisqualifiedUsers = async (req, res) => {
       return res.status(404).json({ error: "Contest not found" });
     }
 
-    const disqualifiedUserIds = await redisContestUtils.getDisqualifiedUsers(
-      contestId
-    );
-
     const disqualifiedUsers = await Promise.all(
-      disqualifiedUserIds.map(async (userId) => {
-        const user = await User.findById(userId).select(
-          "username firstName lastName email"
-        );
-        const disqualificationData =
-          await redisContestUtils.getUserDisqualificationData(
-            contestId,
-            userId
-          );
-
-        return {
-          userId,
-          user: user || { username: "Unknown" },
-          disqualificationData,
-        };
+      contest.disqualifications.map(async (dq) => {
+        const user = await User.findById(dq.userId).select("username firstName lastName email").catch(() => null);
+        return { userId: dq.userId, user: user || { username: dq.username || "Unknown" }, disqualificationData: dq };
       })
     );
 
-    res.json({
-      contestId,
-      contestTitle: contest.title,
-      disqualifiedUsers,
-    });
+    res.json({ contestId, contestTitle: contest.title, disqualifiedUsers });
   } catch (error) {
     console.error("Get disqualified users error:", error);
     res.status(500).json({ error: "Failed to get disqualified users" });
@@ -357,28 +293,21 @@ export const disqualifyUser = async (req, res) => {
     }
 
     const contest = await Contest.findById(contestId);
-    if (!contest) {
-      return res.status(404).json({ error: "Contest not found" });
-    }
+    if (!contest) return res.status(404).json({ error: "Contest not found" });
 
     const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-    // Disqualify user in Redis
-    await redisContestUtils.disqualifyUser(contestId, userId, {
+    contest.disqualifyUser(userId, {
+      username: user.username,
       reason,
       violationType: "admin_action",
-      timestamp: new Date().toISOString(),
-      adminUsername: req.user.username,
+      timestamp: new Date(),
+      adminUsername: req.user?.username || "",
     });
+    await contest.save();
 
-    res.json({
-      message: `User ${user.username} has been disqualified from the contest`,
-      userId,
-      username: user.username,
-    });
+    res.json({ message: `User ${user.username} has been disqualified from the contest`, userId, username: user.username });
   } catch (error) {
     console.error("Disqualify user error:", error);
     res.status(500).json({ error: "Failed to disqualify user" });
@@ -391,23 +320,15 @@ export const removeDisqualification = async (req, res) => {
     const { contestId, userId } = req.params;
 
     const contest = await Contest.findById(contestId);
-    if (!contest) {
-      return res.status(404).json({ error: "Contest not found" });
-    }
+    if (!contest) return res.status(404).json({ error: "Contest not found" });
 
     const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-    // Remove disqualification from Redis
-    await redisContestUtils.removeUserDisqualification(contestId, userId);
+    contest.removeDisqualification(userId);
+    await contest.save();
 
-    res.json({
-      message: `Disqualification removed for user ${user.username}`,
-      userId,
-      username: user.username,
-    });
+    res.json({ message: `Disqualification removed for user ${user.username}`, userId, username: user.username });
   } catch (error) {
     console.error("Remove disqualification error:", error);
     res.status(500).json({ error: "Failed to remove disqualification" });
@@ -420,23 +341,13 @@ export const clearAllDisqualifications = async (req, res) => {
     const { contestId } = req.params;
 
     const contest = await Contest.findById(contestId);
-    if (!contest) {
-      return res.status(404).json({ error: "Contest not found" });
-    }
+    if (!contest) return res.status(404).json({ error: "Contest not found" });
 
-    const disqualifiedUserIds = await redisContestUtils.getDisqualifiedUsers(
-      contestId
-    );
+    const clearedCount = contest.disqualifications.length;
+    contest.disqualifications = [];
+    await contest.save();
 
-    // Remove all disqualifications
-    for (const userId of disqualifiedUserIds) {
-      await redisContestUtils.removeUserDisqualification(contestId, userId);
-    }
-
-    res.json({
-      message: `All disqualifications cleared for contest ${contest.title}`,
-      clearedCount: disqualifiedUserIds.length,
-    });
+    res.json({ message: `All disqualifications cleared for contest ${contest.title}`, clearedCount });
   } catch (error) {
     console.error("Clear disqualifications error:", error);
     res.status(500).json({ error: "Failed to clear disqualifications" });
@@ -545,17 +456,11 @@ export const getContestStats = async (req, res) => {
     const { contestId } = req.params;
 
     const contest = await Contest.findById(contestId);
-    if (!contest) {
-      return res.status(404).json({ error: "Contest not found" });
-    }
+    if (!contest) return res.status(404).json({ error: "Contest not found" });
 
     const totalRegistered = contest.registeredUsers.length;
-    const totalParticipated = await ContestRanking.countDocuments({
-      contestId,
-    });
-    const disqualifiedCount = (
-      await redisContestUtils.getDisqualifiedUsers(contestId)
-    ).length;
+    const totalParticipated = await ContestRanking.countDocuments({ contestId });
+    const disqualifiedCount = contest.disqualifications.length;
 
     res.json({
       contestId,

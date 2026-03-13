@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 
 class ApiClient {
   constructor() {
@@ -8,12 +8,34 @@ class ApiClient {
   async request(endpoint, options = {}) {
     const url = `${this.baseUrl}${endpoint}`;
 
+    const headers = {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+      ...options.headers,
+    };
+
+    // Auto-inject Clerk token if not explicitly provided and Clerk is globally available
+    if (!headers.Authorization && window.Clerk?.session) {
+      try {
+        const token = await window.Clerk.session.getToken();
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+          console.log(`[API] Auto-injected Clerk Token for ${url}`);
+        } else {
+          console.warn(`[API] Clerk session found but getToken() returned null for ${url}`);
+        }
+      } catch (err) {
+        console.warn("Failed to get Clerk token automatically:", err);
+      }
+    } else if (headers.Authorization) {
+       console.log(`[API] Explicit Authorization header used for ${url}`);
+    } else {
+       console.warn(`[API] No Authorization header sent for ${url}`);
+    }
+
     const config = {
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
       ...options,
+      headers,
     };
 
     try {

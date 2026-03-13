@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useUser } from '@clerk/clerk-react'
-import { useSocket } from '@/contexts/SocketContext'
+import { useAuth } from '@clerk/clerk-react'
+import { apiClient } from '@/lib/api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,114 +11,67 @@ import { Swords, Users, Clock, Copy, Plus, LogIn, Code, Keyboard } from 'lucide-
 
 export default function DuelsPage() {
   const navigate = useNavigate()
-  const { user } = useUser()
-  const { socket, isConnected, isAuthenticated } = useSocket()
+  const { getToken } = useAuth()
   const [joinCode, setJoinCode] = useState('')
   const [isCreating, setIsCreating] = useState(false)
   const [isJoining, setIsJoining] = useState(false)
   const [timeLimit, setTimeLimit] = useState(30)
   const [duelType, setDuelType] = useState('coding') // 'coding' or 'typing'
-
-  useEffect(() => {
-    if (!socket || !isConnected || !isAuthenticated) return
-
-    // Listen for duel creation success
-    const handleDuelCreated = (data) => {
-      const { room } = data
-      console.log('Duel created:', room)
-      setIsCreating(false)
-      navigate(`/duel/${room.roomCode}`)
-    }
-
-    // Listen for typing duel creation success
-    const handleTypingDuelCreated = (data) => {
-      const { room } = data
-      console.log('Typing duel created:', room)
-      setIsCreating(false)
-      navigate(`/duel/${room.roomCode}`)
-    }
-
-    // Listen for join success
-    const handleParticipantJoined = (data) => {
-      const { room } = data
-      console.log('Joined duel:', room)
-      setIsJoining(false)
-      navigate(`/duel/${room.roomCode}`)
-    }
-
-    // Listen for errors
-    const handleError = (error) => {
-      console.error('Socket error:', error)
-      setIsCreating(false)
-      setIsJoining(false)
-      alert(error.message || 'An error occurred')
-    }
-
-    socket.on('duel-created', handleDuelCreated)
-    socket.on('typing-duel-created', handleTypingDuelCreated)
-    socket.on('participant-joined', handleParticipantJoined)
-    socket.on('error', handleError)
-
-    return () => {
-      socket.off('duel-created', handleDuelCreated)
-      socket.off('typing-duel-created', handleTypingDuelCreated)
-      socket.off('participant-joined', handleParticipantJoined)
-      socket.off('error', handleError)
-    }
-  }, [socket, isConnected, isAuthenticated, navigate])
+  const [error, setError] = useState(null)
 
   const handleCreateRoom = async () => {
-    if (!socket || !isConnected || !isAuthenticated) {
-      alert('Not connected to server')
-      return
-    }
-
     try {
       setIsCreating(true)
-      if (duelType === 'typing') {
-        socket.emit('create-typing-duel', { timeLimit })
+      setError(null)
+
+      const token = await getToken();
+      const endpoint = duelType === 'typing' ? '/api/duels/create-typing' : '/api/duels/create'
+      const data = await apiClient.request(endpoint, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ timeLimit }),
+      })
+
+      if (data?.room?.roomCode) {
+        navigate(`/duel/${data.room.roomCode}`)
       } else {
-        socket.emit('create-duel', { timeLimit })
+        console.error('Create API Response:', data)
+        throw new Error('Invalid response from server')
       }
-    } catch (error) {
-      console.error('Failed to create room:', error)
+    } catch (err) {
+      console.error('Failed to create room:', err)
+      setError(err.message || 'Failed to create room. Please try again.')
       setIsCreating(false)
-      alert('Failed to create room. Please try again.')
     }
   }
 
   const handleJoinRoom = async () => {
     if (!joinCode.trim()) {
-      alert('Please enter a room code')
-      return
-    }
-
-    if (!socket || !isConnected || !isAuthenticated) {
-      alert('Not connected to server')
+      setError('Please enter a room code')
       return
     }
 
     try {
       setIsJoining(true)
-      socket.emit('join-duel', { roomCode: joinCode.trim().toUpperCase() })
-    } catch (error) {
-      console.error('Failed to join room:', error)
-      setIsJoining(false)
-      alert('Failed to join room. Please try again.')
-    }
-  }
+      setError(null)
 
-  if (!isConnected || !isAuthenticated) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">
-            {!isConnected ? 'Connecting to server...' : 'Authenticating...'}
-          </p>
-        </div>
-      </div>
-    )
+      const token = await getToken();
+      const data = await apiClient.request(`/api/duels/join/${joinCode.trim().toUpperCase()}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({}),
+      })
+
+      if (data?.room?.roomCode) {
+        navigate(`/duel/${data.room.roomCode}`)
+      } else {
+        throw new Error('Invalid response from server')
+      }
+    } catch (err) {
+      console.error('Failed to join room:', err)
+      setError(err.message || 'Failed to join room. Please try again.')
+      setIsJoining(false)
+    }
   }
 
   return (
@@ -133,6 +86,12 @@ export default function DuelsPage() {
           Challenge other players to real-time skill battles. Test your coding prowess or typing speed in competitive duels.
         </p>
       </div>
+
+      {error && (
+        <div className="max-w-4xl mx-auto p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg text-center">
+          {error}
+        </div>
+      )}
 
       {/* Action Cards */}
       <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
@@ -169,8 +128,8 @@ export default function DuelsPage() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground text-center">
-                {duelType === 'coding' 
-                  ? 'Solve coding problems faster than your opponent' 
+                {duelType === 'coding'
+                  ? 'Solve coding problems faster than your opponent'
                   : 'Type text accurately and quickly (100% accuracy required)'}
               </p>
             </div>
@@ -187,8 +146,8 @@ export default function DuelsPage() {
               />
             </div>
             
-            <Button 
-              onClick={handleCreateRoom} 
+            <Button
+              onClick={handleCreateRoom}
               className="w-full text-lg py-6"
               disabled={isCreating}
             >
@@ -238,12 +197,13 @@ export default function DuelsPage() {
                 onChange={(e) => setJoinCode(e.target.value.toUpperCase().slice(0, 6))}
                 className="text-center text-lg font-mono tracking-wider"
                 maxLength={6}
+                onKeyDown={(e) => e.key === 'Enter' && handleJoinRoom()}
               />
             </div>
             
-            <Button 
-              onClick={handleJoinRoom} 
-              variant="outline" 
+            <Button
+              onClick={handleJoinRoom}
+              variant="outline"
               className="w-full text-lg py-6"
               disabled={!joinCode.trim() || isJoining}
             >
@@ -298,7 +258,7 @@ export default function DuelsPage() {
             <div className="inline-flex items-center justify-center w-10 h-10 bg-green-500/10 rounded-full mb-3">
               <span className="text-green-600 font-bold">3</span>
             </div>
-            <h3 className="font-semibold">Code & Win</h3>
+            <h3 className="font-semibold">Code &amp; Win</h3>
             <p className="text-sm text-muted-foreground">
               First to submit working code wins XP and bragging rights
             </p>

@@ -55,7 +55,7 @@ const LANGUAGE_OPTIONS = {
 export default function DuelRoom() {
   const { roomCode } = useParams();
   const navigate = useNavigate();
-  const { socket, isAuthenticated } = useSocket();
+  const { subscribeToRoom, unsubscribeFromRoom } = useSocket();
   const { user, syncUser } = useUserContext();
   const { theme } = useTheme();
 
@@ -78,6 +78,8 @@ export default function DuelRoom() {
   const [antiCheatWarning, setAntiCheatWarning] = useState('');
 
   const timerRef = useRef(null);
+  const channelRef = useRef(null);
+  const pollRef = useRef(null);
 
   // Initialize code template when language changes or room changes
   useEffect(() => {
@@ -116,197 +118,93 @@ export default function DuelRoom() {
     fetchLanguages();
   }, []);
 
+  // Fetch initial room state on mount
   useEffect(() => {
-    if (!socket || !roomCode || !isAuthenticated) return;
-
-    console.log('Socket authenticated, joining room:', roomCode);
-    // Join room
-    socket.emit('join-duel', { roomCode });
-
-    // Socket event listeners
-    const handleParticipantJoined = (data) => {
-      console.log('Participant joined:', data);
-      setRoom(data.room);
-    };
-
-    const handleUserReadyChanged = (data) => {
-      console.log('User ready status changed:', data);
-      setRoom(data.room);
-    };
-
-    const handleDuelStarted = (data) => {
-      console.log('Duel started:', data);
-      setRoom(data.room);
-      if (data.room?.timeLimit) {
-        setTimeRemaining(data.room.timeLimit * 60); // Convert minutes to seconds
-        startTimer();
-      }
-    };
-
-    const handleCodeSubmitted = (data) => {
-      console.log('Code submitted by participant:', data);
-      setRoom(data.room);
-    };
-
-    const handleDuelEnded = (data) => {
-      console.log('Duel ended:', data);
-      setDuelResult(data);
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
-
-    const handleDuelFinished = async (data) => {
-      console.log('Duel finished:', data);
-      console.log('Winner data:', data.winner);
-      setDuelResult(data);
-      setRoom(data.room);
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-
-      // Refresh user data to update stats on dashboard
+    if (!roomCode) return;
+    const fetchRoom = async () => {
       try {
-        await syncUser();
-      } catch (error) {
-        console.error('Failed to refresh user data after duel:', error);
-      }
-
-      // Cleanup socket listeners and redirect to dashboard after 5 seconds
-      setTimeout(() => {
-        if (socket) {
-          // Remove all duel-related event listeners
-          socket.off('participant-joined');
-          socket.off('user-ready-changed');
-          socket.off('duel-started');
-          socket.off('code-submitted');
-          socket.off('duel-ended');
-          socket.off('duel-finished');
-          socket.off('typing-duel-finished');
-          socket.off('participant-typing-progress');
-          socket.off('participant-typing-restart');
-          socket.off('submission-received');
-          socket.off('chat-message');
-          socket.off('error');
+        const data = await apiClient.request(`/api/duels/room/${roomCode}`);
+        if (data?.room) {
+          setRoom(data.room);
+          if (data.room.status === 'active' && data.room.startTime && data.room.timeLimit) {
+            const elapsed = Math.floor((Date.now() - new Date(data.room.startTime)) / 1000);
+            const remaining = Math.max(0, data.room.timeLimit * 60 - elapsed);
+            setTimeRemaining(remaining);
+            if (remaining > 0) startTimer();
+          }
         }
-        navigate('/dashboard');
-      }, 5000);
+      } catch (err) {
+        console.error('Failed to fetch room:', err);
+        setError('Room not found');
+      }
     };
+    fetchRoom();
+    // Join the room (in case we're the second player or refreshed)
+    apiClient.request(`/api/duels/join/${roomCode}`, { method: 'POST', body: JSON.stringify({}) })
+      .then(data => { if (data?.room) setRoom(data.room); })
+      .catch(err => console.log('Join attempt:', err.message));
+  }, [roomCode]);
 
-    const handleTypingDuelFinished = async (data) => {
-      console.log('Typing duel finished:', data);
-      console.log('Winner data:', data.winner);
-      setDuelResult(data);
+
+  // Subscribe to Pusher channel for real-time events
+  useEffect(() => {
+    if (!roomCode) return;
+    const channel = subscribeToRoom(roomCode);
+    channelRef.current = channel;
+    if (!channel) {
+      console.log('[DuelRoom] Pusher not available, falling back to polling');
+      pollRef.current = setInterval(async () => {
+        try {
+          const data = await apiClient.request(`/api/duels/room/${roomCode}`);
+          if (data?.room) setRoom(data.room);
+        } catch (e) { /* ignore */ }
+      }, 3000);
+      return () => clearInterval(pollRef.current);
+    }
+    channel.bind('participant-joined', (data) => { setRoom(data.room); });
+    channel.bind('user-ready-changed', (data) => { setRoom(data.room); });
+    channel.bind('duel-started', (data) => {
       setRoom(data.room);
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-
-      // Refresh user data to update stats on dashboard
-      try {
-        await syncUser();
-      } catch (error) {
-        console.error('Failed to refresh user data after duel:', error);
-      }
-
-      // Cleanup socket listeners and redirect to dashboard after 5 seconds
-      setTimeout(() => {
-        if (socket) {
-          // Remove all duel-related event listeners
-          socket.off('participant-joined');
-          socket.off('user-ready-changed');
-          socket.off('duel-started');
-          socket.off('code-submitted');
-          socket.off('duel-ended');
-          socket.off('duel-finished');
-          socket.off('typing-duel-finished');
-          socket.off('participant-typing-progress');
-          socket.off('participant-typing-restart');
-          socket.off('submission-received');
-          socket.off('chat-message');
-          socket.off('error');
-        }
-        navigate('/dashboard');
-      }, 5000);
-    };
-
-    const handleParticipantTypingProgress = (data) => {
-      console.log('Participant typing progress:', data);
-      // Update room with latest participant progress
-      setRoom(prevRoom => {
-        if (!prevRoom) return prevRoom;
-        
-        const updatedParticipants = prevRoom.participants.map(p => 
-          p.userId === data.userId 
-            ? { ...p, typingProgress: { ...p.typingProgress, ...data.progress } }
-            : p
-        );
-        
-        return { ...prevRoom, participants: updatedParticipants };
-      });
-    };
-
-    const handleParticipantTypingRestart = (data) => {
-      console.log('Participant restarted typing:', data);
-      // Could show a notification that opponent restarted
-      if (data.userId !== user?.id) {
-        setError(`${data.username} restarted typing`);
-        setTimeout(() => setError(null), 3000);
-      }
-    };
-
-    const handleSubmissionReceived = (data) => {
-      console.log('Submission received:', data);
-      // Show notification about opponent's submission
+      if (data.room?.timeLimit) { setTimeRemaining(data.room.timeLimit * 60); startTimer(); }
+    });
+    channel.bind('code-submitted', (data) => { setRoom(data.room); });
+    channel.bind('submission-received', (data) => {
       if (data.userId !== user?.id) {
         setError(`${data.username} submitted: ${data.passed}/${data.total} test cases passed`);
         setTimeout(() => setError(null), 5000);
       }
-    };
-
-    const handleChatMessage = (data) => {
-      setChatMessages(prev => [...prev, data]);
-    };
-
-    const handleError = (error) => {
-      console.error('Socket error:', error);
-      setError(error.message);
-    };
-
-    // Add event listeners
-    socket.on('participant-joined', handleParticipantJoined);
-    socket.on('user-ready-changed', handleUserReadyChanged);
-    socket.on('duel-started', handleDuelStarted);
-    socket.on('code-submitted', handleCodeSubmitted);
-    socket.on('duel-ended', handleDuelEnded);
-    socket.on('duel-finished', handleDuelFinished);
-    socket.on('typing-duel-finished', handleTypingDuelFinished);
-    socket.on('participant-typing-progress', handleParticipantTypingProgress);
-    socket.on('participant-typing-restart', handleParticipantTypingRestart);
-    socket.on('submission-received', handleSubmissionReceived);
-    socket.on('chat-message', handleChatMessage);
-    socket.on('error', handleError);
-
-    // Cleanup
+    });
+    channel.bind('duel-ended', (data) => { setDuelResult(data); if (timerRef.current) clearInterval(timerRef.current); });
+    channel.bind('duel-finished', async (data) => {
+      setDuelResult(data); setRoom(data.room);
+      if (timerRef.current) clearInterval(timerRef.current);
+      try { await syncUser(); } catch (e) { /* ignore */ }
+      setTimeout(() => navigate('/dashboard'), 5000);
+    });
+    channel.bind('typing-duel-finished', async (data) => {
+      setDuelResult(data); setRoom(data.room);
+      if (timerRef.current) clearInterval(timerRef.current);
+      try { await syncUser(); } catch (e) { /* ignore */ }
+      setTimeout(() => navigate('/dashboard'), 5000);
+    });
+    channel.bind('participant-typing-progress', (data) => {
+      setRoom(prev => {
+        if (!prev) return prev;
+        return { ...prev, participants: prev.participants.map(p =>
+          p.userId === data.userId ? { ...p, typingProgress: { ...p.typingProgress, ...data.progress } } : p
+        )};
+      });
+    });
+    channel.bind('participant-typing-restart', (data) => {
+      if (data.userId !== user?.id) { setError(`${data.username} restarted typing`); setTimeout(() => setError(null), 3000); }
+    });
+    channel.bind('chat-message', (data) => { setChatMessages(prev => [...prev, data]); });
     return () => {
-      socket.off('participant-joined', handleParticipantJoined);
-      socket.off('user-ready-changed', handleUserReadyChanged);
-      socket.off('duel-started', handleDuelStarted);
-      socket.off('code-submitted', handleCodeSubmitted);
-      socket.off('duel-ended', handleDuelEnded);
-      socket.off('duel-finished', handleDuelFinished);
-      socket.off('typing-duel-finished', handleTypingDuelFinished);
-      socket.off('participant-typing-progress', handleParticipantTypingProgress);
-      socket.off('participant-typing-restart', handleParticipantTypingRestart);
-      socket.off('submission-received', handleSubmissionReceived);
-      socket.off('chat-message', handleChatMessage);
-      socket.off('error', handleError);
-      
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
+      unsubscribeFromRoom(roomCode);
+      channelRef.current = null;
+      if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [socket, roomCode, isAuthenticated]);
+  }, [roomCode]);
 
   const startTimer = () => {
     if (timerRef.current) {
@@ -392,10 +290,17 @@ export default function DuelRoom() {
     }
   }, [antiCheatActive, isFullscreen, isFullscreenSupported]);
 
-  const handleToggleReady = () => {
-    if (socket && roomCode) {
-      socket.emit('toggle-ready', { roomCode });
-      setIsReady(!isReady);
+  const handleToggleReady = async () => {
+    try {
+      const data = await apiClient.request(`/api/duels/ready/${roomCode}`, {
+        method: 'POST',
+        body: JSON.stringify({})
+      });
+      setIsReady(data.isReady);
+      if (data.room) setRoom(data.room);
+    } catch (err) {
+      console.error('Toggle ready error:', err);
+      setError(err.message);
     }
   };
 
@@ -465,21 +370,18 @@ export default function DuelRoom() {
         }),
       });
       
-      // Submit to socket for duel processing
-      if (socket && roomCode) {
-        socket.emit('submit-code', {
-          roomCode,
-          code,
-          language: selectedLanguage,
-          result
-        });
-        
-        // Only mark as "done" if submission is correct
-        if (result?.passedCount === result?.totalCount && result?.totalCount > 0) {
-          setHasCorrectSubmission(true);
-        }
-        setSubmissionResult(result);
+      // Submit to the duel room via REST
+      const submitData = await apiClient.request(`/api/duels/submit/${roomCode}`, {
+        method: 'POST',
+        body: JSON.stringify({ code, language: selectedLanguage, result })
+      });
+
+      // Only mark as "done" if submission is correct
+      if (result?.passedCount === result?.totalCount && result?.totalCount > 0) {
+        setHasCorrectSubmission(true);
       }
+      setSubmissionResult(result);
+      if (submitData?.room) setRoom(submitData.room);
     } catch (error) {
       console.error('Failed to submit code:', error);
       setError('Failed to submit code: ' + error.message);
@@ -493,34 +395,30 @@ export default function DuelRoom() {
     // You could add a toast notification here
   };
 
-  const sendChatMessage = () => {
-    if (chatMessage.trim() && socket && roomCode) {
-      socket.emit('chat-message', {
-        roomCode,
-        message: chatMessage.trim()
+  const sendChatMessage = async () => {
+    if (!chatMessage.trim()) return;
+    try {
+      await apiClient.request(`/api/duels/chat/${roomCode}`, {
+        method: 'POST',
+        body: JSON.stringify({ message: chatMessage.trim() })
       });
       setChatMessage('');
+    } catch (err) {
+      console.error('Failed to send chat:', err);
     }
   };
 
-  // Show loading while waiting for socket authentication
-  if (!socket || !isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Connecting to server...</p>
-        </div>
-      </div>
-    );
-  }
-
+  // Show loading while room loads
   if (!room) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading duel room...</p>
+          {error ? (
+            <p className="text-destructive">{error}</p>
+          ) : (
+            <p className="text-muted-foreground">Loading duel room...</p>
+          )}
         </div>
       </div>
     );
@@ -633,12 +531,12 @@ export default function DuelRoom() {
         {room?.duelType === 'typing' ? (
           <TypingInterface 
             room={room}
-            socket={socket}
             user={user}
             timeRemaining={timeRemaining}
             isReady={isReady}
             setIsReady={setIsReady}
             formatTime={formatTime}
+            onToggleReady={handleToggleReady}
           />
         ) : (
           <>

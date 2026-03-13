@@ -2,7 +2,8 @@ import { configDotenv } from "dotenv";
 
 configDotenv();
 
-const JUDGE0_BASE_URL = process.env.JUDGE0_BASE_URL;
+const JUDGE0_BASE_URL = process.env.JUDGE0_BASE_URL || 'https://judge0-ce.p.rapidapi.com';
+const JUDGE0_API_KEY = process.env.JUDGE0_API_KEY;
 
 // Helper function to get file extension based on language name
 function getFileExtension(languageName) {
@@ -32,6 +33,12 @@ async function makeJudge0Request(endpoint, options = {}) {
     "Content-Type": "application/json",
     "ngrok-skip-browser-warning": "true",
   };
+
+  // Add RapidAPI headers if using RapidAPI
+  if (JUDGE0_BASE_URL.includes("rapidapi")) {
+    defaultHeaders["X-RapidAPI-Key"] = JUDGE0_API_KEY;
+    defaultHeaders["X-RapidAPI-Host"] = new URL(JUDGE0_BASE_URL).host;
+  }
 
   const fetchOptions = {
     ...options,

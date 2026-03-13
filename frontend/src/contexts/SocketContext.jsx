@@ -1,114 +1,79 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import { io } from 'socket.io-client';
-import { useUser, useAuth } from '@clerk/clerk-react';
-import { useUserContext } from './UserContext';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import Pusher from 'pusher-js';
+import { useAuth } from '@clerk/clerk-react';
 
-const SocketContext = createContext();
+const SocketContext = createContext(null);
 
 export const useSocket = () => {
   const context = useContext(SocketContext);
-  if (!context) {
-    throw new Error('useSocket must be used within a SocketProvider');
-  }
+  if (!context) throw new Error('useSocket must be used within a SocketProvider');
   return context;
 };
 
 export const SocketProvider = ({ children }) => {
-  const [socket, setSocket] = useState(null);
+  const { isSignedIn, isLoaded } = useAuth();
   const [isConnected, setIsConnected] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const { user: clerkUser, isLoaded } = useUser();
-  const { getToken } = useAuth();
-  const { user: syncedUser, loading: userLoading, needsProfileSetup, syncUser } = useUserContext();
+  const pusherRef = useRef(null);
 
   useEffect(() => {
-    // Only initialize socket if:
-    // 1. Clerk is loaded and user is signed in
-    // 2. User context is not loading
-    // 3. User is synced (exists in our database)
-    // 4. User doesn't need profile setup
-    if (!isLoaded || !clerkUser || userLoading || !syncedUser || needsProfileSetup) {
+    if (!isLoaded || !isSignedIn) return;
+
+    if (!import.meta.env.VITE_PUSHER_KEY) {
+      console.warn('[Pusher] VITE_PUSHER_KEY not set, real-time features disabled');
+      setIsConnected(false);
       return;
     }
 
-    const initializeSocket = async () => {
-      try {
-        // Get authentication token
-        const token = await getToken();
-        
-        // Initialize socket connection
-        const newSocket = io(import.meta.env.VITE_API_URL || 'http://localhost:3000', {
-          withCredentials: true,
-          auth: {
-            token: token,
-          },
-        });
+    Pusher.logToConsole = import.meta.env.DEV;
 
-        newSocket.on('connect', () => {
-          console.log('Connected to server');
-          setIsConnected(true);
-          
-          // Authenticate with Clerk user ID and token
-          newSocket.emit('authenticate', {
-            clerkUserId: clerkUser.id,
-            token: token,
-          });
-        });
+    const pusher = new Pusher(import.meta.env.VITE_PUSHER_KEY, {
+      cluster: import.meta.env.VITE_PUSHER_CLUSTER || 'ap2',
+    });
 
-        newSocket.on('disconnect', () => {
-          console.log('Disconnected from server');
-          setIsConnected(false);
-          setIsAuthenticated(false);
-        });
+    pusherRef.current = pusher;
 
-        newSocket.on('authenticated', (data) => {
-          console.log('Authenticated successfully:', data);
-          clearTimeout(authTimeout);
-          setIsAuthenticated(true);
-        });
+    pusher.connection.bind('connected', () => {
+      console.log('[Pusher] Connected');
+      setIsConnected(true);
+    });
 
-        // Set a timeout for authentication
-        const authTimeout = setTimeout(() => {
-          if (!isAuthenticated) {
-            console.warn('Authentication timeout - retrying...');
-            newSocket.emit('authenticate', {
-              clerkUserId: clerkUser.id,
-              token: token,
-            });
-          }
-        }, 5000); // 5 second timeout
+    pusher.connection.bind('error', (err) => {
+      console.error('[Pusher] Connection error:', err);
+      setIsConnected(false);
+    });
 
-        newSocket.on('error', (error) => {
-          console.error('Socket error:', error);
-          setIsAuthenticated(false);
+    pusher.connection.bind('disconnected', () => {
+      console.warn('[Pusher] Disconnected');
+      setIsConnected(false);
+    });
 
-          // If the error is USER_NOT_SYNCED, trigger a sync
-          if (error.code === 'USER_NOT_SYNCED') {
-            console.log('User not synced, triggering sync...');
-            syncUser();
-          }
-        });
-
-        setSocket(newSocket);
-
-        return () => {
-          clearTimeout(authTimeout);
-          newSocket.disconnect();
-          setIsConnected(false);
-          setIsAuthenticated(false);
-        };
-      } catch (error) {
-        console.error('Failed to initialize socket:', error);
-      }
+    return () => {
+      pusher.disconnect();
+      pusherRef.current = null;
+      setIsConnected(false);
     };
+  }, [isLoaded, isSignedIn]);
 
-    initializeSocket();
-  }, [clerkUser, isLoaded, getToken, syncedUser, userLoading, needsProfileSetup]);
+  const subscribeToRoom = (roomCode) => {
+    if (!pusherRef.current) return null;
+    const channelName = `room-${roomCode}`;
+    return pusherRef.current.subscribe(channelName);
+  };
+
+  const unsubscribeFromRoom = (roomCode) => {
+    if (!pusherRef.current) return;
+    pusherRef.current.unsubscribe(`room-${roomCode}`);
+  };
 
   const value = {
-    socket,
+    pusher: pusherRef.current,
     isConnected,
-    isAuthenticated,
+    // Expose as "isAuthenticated" for backward compatibility checks in DuelsPage
+    isAuthenticated: isConnected,
+    // Legacy: socket = null (nothing emits anymore)
+    socket: null,
+    subscribeToRoom,
+    unsubscribeFromRoom,
   };
 
   return (

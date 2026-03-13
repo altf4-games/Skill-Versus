@@ -2,7 +2,8 @@ import { configDotenv } from "dotenv";
 import Problem from "../models/Problem.js";
 configDotenv();
 
-const JUDGE0_BASE_URL = process.env.JUDGE0_BASE_URL;
+const JUDGE0_BASE_URL = process.env.JUDGE0_BASE_URL || 'https://judge0-ce.p.rapidapi.com';
+const JUDGE0_API_KEY = process.env.JUDGE0_API_KEY;
 
 /**
  * Convert JSON-style input to CodeChef-style input
@@ -57,29 +58,41 @@ function convertToCodeChefInput(input) {
 function normalizeOutput(str) {
   if (!str) return "";
 
-  // Split by lines and normalize each line
-  const lines = str
-    .trim()
+  // 1. Remove all carriage returns and trim
+  let normalized = str.replace(/\r/g, '').trim().toLowerCase();
+
+  // 2. If the ENTIRE string is an array like "['a', 'b']" or "[\n'a',\n'b'\n]"
+  // collapse it into a single line first before further processing
+  if (normalized.startsWith('[') && normalized.endsWith(']')) {
+      // Remove the outer brackets
+      normalized = normalized.substring(1, normalized.length - 1);
+      // Remove all single/double quotes
+      normalized = normalized.replace(/['"]/g, '');
+      // Replace commas and newlines with spaces
+      normalized = normalized.replace(/[,]/g, ' ');
+      normalized = normalized.replace(/\n/g, ' ');
+      // Collapse multiple spaces into one
+      normalized = normalized.replace(/\s+/g, ' ').trim();
+      return normalized;
+  }
+
+  // 3. Fallback to line-by-line normalization for multi-line outputs (not a single array)
+  const lines = normalized
     .split("\n")
     .map((line) => {
-      let normalized = line.trim().toLowerCase();
-
-      // Remove spaces around array brackets and commas: [0, 1] -> [0,1]
-      normalized = normalized.replace(/\[\s*/g, "[");
-      normalized = normalized.replace(/\s*\]/g, "]");
-      normalized = normalized.replace(/\s*,\s*/g, ",");
-
-      // If line is a simple array like [0,1], convert to space-separated
-      const arrayMatch = normalized.match(/^\[([^\[\]]*)\]$/);
+      let n = line.trim();
+      n = n.replace(/\[\s*/g, "[");
+      n = n.replace(/\s*\]/g, "]");
+      n = n.replace(/\s*,\s*/g, ",");
+      
+      const arrayMatch = n.match(/^\[([^\[\]]*)\]$/);
       if (arrayMatch) {
-        // Convert [0,1,2] to 0 1 2
-        normalized = arrayMatch[1].replace(/,/g, " ");
+        n = arrayMatch[1].replace(/,/g, " ");
       }
-
-      return normalized;
+      n = n.replace(/['"]/g, "");
+      return n;
     });
 
-  // Join back and remove empty lines
   return lines.filter((l) => l.length > 0).join("\n");
 }
 
@@ -91,6 +104,12 @@ async function makeJudge0Request(endpoint, options = {}) {
     "Content-Type": "application/json",
     "ngrok-skip-browser-warning": "true",
   };
+
+  // Add RapidAPI headers if using RapidAPI
+  if (JUDGE0_BASE_URL.includes("rapidapi")) {
+    defaultHeaders["X-RapidAPI-Key"] = JUDGE0_API_KEY;
+    defaultHeaders["X-RapidAPI-Host"] = new URL(JUDGE0_BASE_URL).host;
+  }
 
   const fetchOptions = {
     ...options,

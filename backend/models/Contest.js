@@ -199,6 +199,17 @@ const contestSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+
+    // Disqualified users (replaces Redis-based disqualification storage)
+    disqualifications: [{
+      userId: { type: String, required: true },
+      username: { type: String, default: '' },
+      reason: { type: String, default: '' },
+      violationType: { type: String, default: '' },
+      timestamp: { type: Date, default: Date.now },
+      adminUsername: { type: String, default: '' },
+      isVirtual: { type: Boolean, default: false },
+    }],
   },
   {
     timestamps: true,
@@ -267,6 +278,39 @@ contestSchema.methods.updateStatus = function () {
   } else {
     this.status = "finished";
   }
+};
+
+// Disqualification helpers (replaces Redis)
+contestSchema.methods.disqualifyUser = function (userId, data = {}) {
+  // Replace existing entry if present
+  this.disqualifications = this.disqualifications.filter(
+    (d) => d.userId.toString() !== userId.toString()
+  );
+  this.disqualifications.push({
+    userId: userId.toString(),
+    username: data.username || '',
+    reason: data.reason || '',
+    violationType: data.violationType || '',
+    timestamp: data.timestamp || new Date(),
+    adminUsername: data.adminUsername || '',
+    isVirtual: data.isVirtual || false,
+  });
+};
+
+contestSchema.methods.isUserDisqualified = function (userId) {
+  return this.disqualifications.some(
+    (d) => d.userId.toString() === userId.toString()
+  );
+};
+
+contestSchema.methods.removeDisqualification = function (userId) {
+  this.disqualifications = this.disqualifications.filter(
+    (d) => d.userId.toString() !== userId.toString()
+  );
+};
+
+contestSchema.methods.getDisqualifiedUserIds = function () {
+  return this.disqualifications.map((d) => d.userId.toString());
 };
 
 // Pre-save middleware to update status
